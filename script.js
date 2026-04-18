@@ -1,7 +1,19 @@
 let YOUR_UID = "";
-let db, auth, resetTimer, html5QrCode;
+let db, auth, resetTimer;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let searchTerm = "";
+
+// 1 SECOND RESET LOGIC
+function startReset() {
+    resetTimer = setTimeout(() => {
+        if (confirm("Wipe all data and reset system?")) {
+            db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 });
+            location.reload();
+        }
+    }, 1000); // Changed from 3000 to 1000
+}
+
+function stopReset() { clearTimeout(resetTimer); }
 
 async function initTapMS() {
     try {
@@ -38,9 +50,9 @@ function pushData() { db.ref('/').set({ products, queue, history, orderCounter }
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
-
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
 
+    // Cashier
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
         <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
             <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative pointer-events-none">
@@ -52,11 +64,12 @@ function render() {
         </div>
     `).join('');
 
+    // Pending
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
             <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
                 <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
-                <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Order Name..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
+                <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
             </div>
             <div class="flex flex-wrap gap-2 mb-4">
                 ${ord.items.map(i => `<span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}
@@ -68,6 +81,7 @@ function render() {
         </div>
     `).join('');
 
+    // History
     document.getElementById('history-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
         <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 shadow-sm transition-all overflow-hidden" onclick="toggleOrderExpand(${idx})">
             <div class="flex justify-between items-center">
@@ -93,13 +107,14 @@ function render() {
                 </div>
             </div>
         </div>
-    `).join('') || '<p class="text-center py-10 opacity-20">Empty History</p>';
+    `).join('');
 
+    // Stock
     document.getElementById('inventory-list').innerHTML = products.map(p => `
         <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
             <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                 <img src="${p.img || ''}" class="w-full h-full object-cover">
-                <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" placeholder="URL" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
+                <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
             </div>
             <div class="flex-1">
                 <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none">
@@ -132,9 +147,20 @@ window.handleProductTap = id => {
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.remove('hidden'); }
 };
 
-window.toggleOrderExpand = idx => {
-    document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded');
+window.reorder = idx => {
+    const item = history[idx];
+    orderCounter++;
+    queue.unshift({ orderNum: orderCounter, items: JSON.parse(JSON.stringify(item.items)), total: item.total, desc: item.desc || "", date: new Date().toLocaleTimeString() });
+    pushData();
 };
+
+window.updateTag = (list, idx, val) => {
+    if(list === 'queue') queue[idx].desc = val;
+    else history[idx].desc = val;
+    pushData();
+};
+
+window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
 
 window.editOrderDetails = idx => {
     const item = history[idx];
@@ -142,26 +168,6 @@ window.editOrderDetails = idx => {
     history.splice(idx, 1);
     window.showView('cashier');
     pushData();
-};
-
-window.reorder = idx => {
-    const item = history[idx];
-    orderCounter++;
-    // Directly push to pending queue instead of current cart
-    queue.unshift({ 
-        orderNum: orderCounter, 
-        items: JSON.parse(JSON.stringify(item.items)), 
-        total: item.total, 
-        desc: item.desc || "", 
-        date: new Date().toLocaleTimeString() 
-    });
-    pushData();
-};
-
-window.updateTag = (list, idx, val) => {
-    if(list === 'queue') queue[idx].desc = val;
-    else history[idx].desc = val;
-    pushData(); // Immediate save to Firebase
 };
 
 window.toggleManageSection = sec => {
