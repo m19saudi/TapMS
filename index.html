@@ -5,11 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TapMS | Cloud POS</title>
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/9402/9402314.png">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
         body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; }
@@ -45,19 +47,21 @@
                     <button onclick="toggleManageSection('orders')" id="sub-btn-orders" class="px-6 py-2 rounded-xl text-xs font-black uppercase transition-all bg-white shadow-sm text-blue-600">Queue</button>
                     <button onclick="toggleManageSection('stock')" id="sub-btn-stock" class="px-6 py-2 rounded-xl text-xs font-black uppercase transition-all text-slate-400">Inventory</button>
                 </div>
+                
                 <div id="sec-orders" class="space-y-6">
                     <div id="pending-list" class="grid gap-4"></div>
                     <hr class="border-slate-200">
-                    <div id="history-list" class="grid gap-4"></div>
+                    <div id="history-list" class="grid gap-4 opacity-60"></div>
                 </div>
-                <div id="sec-stock" class="hidden space-y-4">
+                
+                <div id="sec-stock" class="hidden">
                     <div id="inventory-list" class="space-y-2"></div>
                 </div>
             </div>
         </main>
 
         <aside class="hidden xl:flex w-96 glass border-l border-slate-200 flex-col p-8">
-            <div class="font-black text-2xl mb-6">Current Order</div>
+            <div class="font-black text-2xl mb-6 tracking-tight">Current Order</div>
             <div id="sidebar-items" class="flex-1 overflow-y-auto space-y-4 custom-scroll pr-2"></div>
             <div class="pt-6 border-t border-slate-200 mt-6">
                 <div class="flex justify-between items-end mb-6">
