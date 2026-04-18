@@ -2,6 +2,7 @@ let YOUR_UID = "";
 let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let html5QrCode;
+let searchTerm = "";
 
 async function initTapMS() {
     try {
@@ -16,19 +17,18 @@ async function initTapMS() {
         auth.onAuthStateChanged((user) => {
             const dot = document.getElementById('status-dot');
             if (user && user.uid === YOUR_UID) {
-                dot.className = "w-3 h-3 rounded-full dot-connected"; // Switch to Green
+                dot.className = "w-3 h-3 rounded-full dot-connected";
                 startSync();
             } else {
-                dot.className = "w-3 h-3 rounded-full dot-connecting animate-pulse"; // Keep Yellow
+                dot.className = "w-3 h-3 rounded-full dot-connecting animate-pulse";
                 auth.signInWithEmailAndPassword("admin@gmail.com", "123456").catch(e => console.error(e));
             }
         });
     } catch (e) { console.error(e); }
 }
 
-// Reset Protocol: Resets order count to 0 (next order will be 1)
 window.resetTapMS = () => {
-    if(confirm("Wipe everything and start fresh from Order #1?")) {
+    if(confirm("Wipe all data and restart from Order #1?")) {
         db.ref('/').set({ products, queue: [], history: [], orderCounter: 0 });
     }
 };
@@ -47,43 +47,46 @@ function startSync() {
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
 
 function render() {
-    // Red Badge for Manage Tab
     const navb = document.getElementById('nav-badge');
-    navb.classList.toggle('hidden', queue.length === 0);
+    if(navb) navb.classList.toggle('hidden', queue.length === 0);
 
-    // Cashier Grid
-    document.getElementById('view-cashier').innerHTML = products.sort((a,b) => b.fav - a.fav).map(p => `
-        <div class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm" onclick="addToCart(${p.id})">
-            <div class="aspect-square mb-4 overflow-hidden rounded-[1.8rem] bg-slate-50 relative">
+    // 1. Render Cashier (With Filter)
+    const filtered = products
+        .filter(p => p.name.toLowerCase().includes(searchTerm))
+        .sort((a,b) => b.fav - a.fav);
+
+    document.getElementById('view-cashier').innerHTML = filtered.map(p => `
+        <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
+            <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative border border-slate-50">
                 <img src="${p.img || 'https://placehold.co/400x400/f8fafc/cbd5e1?text=?'}" class="product-image">
                 ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-4 h-4 fill-current"></i></div>' : ''}
             </div>
-            <h3 class="font-bold text-center text-sm truncate px-1">${p.name}</h3>
-            <p class="text-blue-600 font-black text-center text-xs">$${parseFloat(p.price).toFixed(2)}</p>
+            <h3 class="font-bold text-center text-[13px] leading-tight truncate px-1">${p.name}</h3>
+            <p class="text-blue-600 font-black text-center text-xs mt-1">$${parseFloat(p.price || 0).toFixed(2)}</p>
         </div>
-    `).join('');
+    `).join('') || '<div class="col-span-full text-center py-20 text-slate-300 font-bold italic">No items found</div>';
 
-    // Pending Queue
-    document.getElementById('pending-list').innerHTML = queue.map((ord, idx) => `
-        <div class="bg-blue-50/50 p-5 rounded-[2rem] border-2 border-blue-200">
-            <div class="flex justify-between items-center mb-3">
-                <div class="bg-white px-3 py-1.5 rounded-xl border border-blue-100 flex-1 flex items-center gap-2">
-                    <span class="text-blue-600 font-black text-xs">#${ord.orderNum}</span>
+    // 2. Pending Review (At Top)
+    document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending Review</h2>` + queue.map((ord, idx) => `
+        <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
+            <div class="flex justify-between items-center mb-4">
+                <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex-1 flex items-center gap-2">
+                    <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
                     <input type="text" value="${ord.desc || ''}" onchange="updateTag(${idx}, this.value)" class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
                 <p class="font-black text-xl text-blue-600 ml-4">$${ord.total.toFixed(2)}</p>
             </div>
             <div class="flex gap-2">
-                <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-3 rounded-2xl font-black uppercase text-[10px]">Approve</button>
-                <button onclick="editOrder(${idx}, 'queue')" class="px-4 bg-white border border-blue-200 text-blue-600 rounded-2xl"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve</button>
+                <button onclick="editOrder(${idx}, 'queue')" class="px-5 bg-white border border-blue-200 text-blue-600 rounded-2xl"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
             </div>
         </div>
     `).join('');
 
-    // Approved History - CLICK TO REORDER
-    document.getElementById('history-list').innerHTML = history.map((h, idx) => `
-        <div class="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm" onclick="reorderFast(${idx})">
-            <div class="flex justify-between items-center">
+    // 3. History (Expandable Details)
+    document.getElementById('history-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">Approved History</h2>` + history.map((h, idx) => `
+        <div class="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleDetails(${idx})">
                 <div class="flex items-center gap-3">
                     <span class="bg-slate-100 text-slate-400 font-black text-[10px] px-2 py-1 rounded-lg">#${h.orderNum}</span>
                     <div>
@@ -92,35 +95,40 @@ function render() {
                     </div>
                 </div>
                 <div class="flex items-center gap-4">
-                    <p class="font-black text-xl">$${h.total.toFixed(2)}</p>
-                    <button onclick="event.stopPropagation(); history.splice(${idx},1); pushData();" class="text-red-200 hover:text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <button onclick="event.stopPropagation(); reorderFast(${idx})" class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                    <p class="font-black text-lg text-slate-700">$${h.total.toFixed(2)}</p>
+                </div>
+            </div>
+            <div id="details-${idx}" class="hidden mt-4 pt-4 border-t border-slate-50 space-y-2">
+                ${h.items.map(i => `<div class="flex justify-between text-xs font-bold text-slate-500"><span>${i.name} x${i.qty}</span><span>$${(i.price*i.qty).toFixed(2)}</span></div>`).join('')}
+                <div class="flex gap-2 pt-3">
+                    <button onclick="editOrder(${idx}, 'history')" class="flex-1 bg-slate-100 text-slate-500 py-3 rounded-xl font-bold uppercase text-[10px]">Edit</button>
+                    <button onclick="history.splice(${idx},1); pushData();" class="text-red-400 px-4"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </div>
         </div>
     `).join('');
 
-    // Inventory - Fixed Image URL & SKU Assignment
+    // 4. Inventory (Direct Delete)
     document.getElementById('inventory-list').innerHTML = products.map(p => `
         <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
-            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50 group">
+            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50 border border-slate-100">
                 <img src="${p.img || 'https://placehold.co/100x100/f1f5f9/94a3b8?text=?'}" class="w-full h-full object-cover">
-                <input type="text" value="${p.img || ''}" placeholder="URL" onchange="editItem(${p.id}, 'img', this.value)" 
-                    class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
+                <input type="text" value="${p.img || ''}" placeholder="URL" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
             </div>
-            <div class="flex-1 space-y-1">
+            <div class="flex-1 space-y-2">
                 <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-slate-50 p-2 rounded-xl outline-none">
                 <div class="flex items-center gap-2">
-                    <div class="bg-slate-50 px-3 py-2 rounded-xl flex items-center gap-1 w-24">
+                    <div class="bg-slate-100 px-3 py-2 rounded-xl flex items-center gap-1 w-24">
                         <span class="text-blue-600 font-black text-xs">$</span>
                         <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="bg-transparent w-full font-black text-sm outline-none">
                     </div>
-                    <button onclick="openScanner(${p.id})" class="p-2 bg-slate-50 rounded-xl ${p.sku ? 'text-blue-600' : 'text-slate-300'}">
-                        <i data-lucide="${p.sku ? 'check-circle' : 'scan'}" class="w-4 h-4"></i>
+                    <button onclick="openScanner(${p.id})" class="p-2 bg-slate-50 rounded-xl ${p.sku ? 'text-blue-600' : 'text-slate-400'}">
+                        <i data-lucide="scan" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
-            <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-100'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-            <button onclick="removeItem(${p.id})" class="text-red-100"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
         </div>
     `).join('');
 
@@ -128,25 +136,40 @@ function render() {
     lucide.createIcons();
 }
 
-function addToCart(id) {
+window.handleProductTap = (id) => {
+    const el = document.getElementById(`prod-${id}`);
+    if(el) {
+        el.classList.add('tap-feedback');
+        setTimeout(() => el.classList.remove('tap-feedback'), 150);
+    }
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
     updateSidebarUI();
-}
+};
 
 function updateSidebarUI() {
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    document.getElementById('side-total').innerText = `$${total.toFixed(2)}`;
+    const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+
+    const topBadge = document.getElementById('cart-count-top');
+    if(topBadge) {
+        topBadge.innerText = totalQty;
+        topBadge.classList.toggle('hidden', totalQty === 0);
+    }
+
+    const sideTotal = document.getElementById('side-total');
+    if(sideTotal) sideTotal.innerText = `$${total.toFixed(2)}`;
+    
     document.getElementById('sidebar-items').innerHTML = cart.map((i, idx) => `
         <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
             <div class="flex items-center gap-3">
                 <img src="${i.img}" class="w-8 h-8 rounded-lg object-cover">
-                <div><p class="font-bold text-xs">${i.name}</p><p class="text-[9px] text-blue-600 font-black">x${i.qty}</p></div>
+                <div><p class="font-bold text-xs">${i.name}</p><p class="text-[10px] text-blue-600 font-black">x${i.qty}</p></div>
             </div>
             <button onclick="cart.splice(${idx},1); updateSidebarUI();" class="text-slate-300"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
         </div>
-    `).join('') || '<p class="text-center py-10 opacity-20 italic">Cart Empty</p>';
+    `).join('') || '<p class="text-center py-10 opacity-20 italic">Empty</p>';
     lucide.createIcons();
 }
 
@@ -165,9 +188,7 @@ window.approveOrder = (idx) => {
     pushData();
 };
 
-// DIRECT REORDER: Click history item to send it back to review with a new order number
 window.reorderFast = (idx) => {
-    if(!confirm("Reorder this items and send to review?")) return;
     orderCounter++;
     const h = history[idx];
     queue.unshift({ ...h, orderNum: orderCounter, date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
@@ -175,33 +196,15 @@ window.reorderFast = (idx) => {
     showView('manage');
 };
 
-window.editOrder = (idx, type) => {
-    const source = type === 'queue' ? queue : history;
-    cart = [...source[idx].items]; source.splice(idx, 1);
-    pushData(); showView('cashier'); 
+window.toggleSearch = () => {
+    const container = document.getElementById('search-container');
+    container.classList.toggle('hidden');
+    if(!container.classList.contains('hidden')) document.getElementById('cashier-search').focus();
 };
 
-window.openScanner = (id) => {
-    document.getElementById('scan-modal').classList.remove('hidden');
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 200 }, (text) => {
-        if(id) { 
-            const p = products.find(x => x.id === id);
-            p.sku = text; 
-            pushData(); 
-            alert("SKU assigned to " + p.name);
-        } else {
-            const p = products.find(x => x.sku === text);
-            if(p) { addToCart(p.id); alert("Added: " + p.name); }
-            else { alert("Unknown SKU: " + text); }
-        }
-        closeScanner();
-    }).catch(e => closeScanner());
-};
-
-window.closeScanner = () => { 
-    if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('scan-modal').classList.add('hidden')); 
-    else document.getElementById('scan-modal').classList.add('hidden'); 
+window.filterProducts = (val) => {
+    searchTerm = val.toLowerCase();
+    render();
 };
 
 window.showView = (v) => {
@@ -222,10 +225,39 @@ window.toggleManageSection = (sec) => {
 window.updateTag = (idx, v) => { queue[idx].desc = v; pushData(); };
 window.editItem = (id, f, v) => { 
     const p = products.find(x => x.id === id);
-    p[f] = (f==='price'?parseFloat(v):v); pushData(); 
+    if(p) { p[f] = (f==='price' ? parseFloat(v) || 0 : v); pushData(); }
 };
 window.addItem = () => { products.push({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, sku: '' }); pushData(); };
-window.removeItem = (id) => { if(confirm("Delete item?")) { products = products.filter(x => x.id !== id); pushData(); } };
-window.toggleFav = (id) => { const p = products.find(x => x.id === id); p.fav = !p.fav; pushData(); };
+window.removeItem = (id) => { products = products.filter(x => x.id !== id); pushData(); };
+window.toggleDetails = (idx) => { document.getElementById(`details-${idx}`).classList.toggle('hidden'); };
+
+window.openScanner = (id) => {
+    document.getElementById('scan-modal').classList.remove('hidden');
+    html5QrCode = new Html5Qrcode("reader");
+    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 }, (text) => {
+        if(id) { 
+            const p = products.find(x => x.id === id);
+            p.sku = text; pushData(); 
+            alert(`SKU assigned: ${text}`);
+        } else {
+            const p = products.find(x => x.sku === text);
+            if(p) handleProductTap(p.id);
+            else alert("Unknown Barcode");
+        }
+        closeScanner();
+    }).catch(e => closeScanner());
+};
+
+window.closeScanner = () => { 
+    if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('scan-modal').classList.add('hidden')); 
+    else document.getElementById('scan-modal').classList.add('hidden'); 
+};
+
+window.editOrder = (idx, type) => {
+    const source = type === 'queue' ? queue : history;
+    cart = [...source[idx].items]; 
+    source.splice(idx, 1);
+    pushData(); showView('cashier'); 
+};
 
 initTapMS();
