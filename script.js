@@ -12,9 +12,8 @@ async function initTapMS() {
         db = firebase.database();
         auth = firebase.auth();
         auth.onAuthStateChanged(user => {
-            const dot = document.getElementById('status-dot');
             if (user && user.uid === YOUR_UID) {
-                dot.className = "w-3 h-3 rounded-full dot-connected";
+                document.getElementById('status-dot').className = "w-3 h-3 rounded-full dot-connected";
                 startSync();
             } else {
                 auth.signInWithEmailAndPassword("admin@gmail.com", "123456").catch(e => console.error(e));
@@ -36,24 +35,22 @@ function startSync() {
 
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
 
-// Master Reset Logic (Hold Icon)
 window.startResetTimer = () => {
     resetTimer = setTimeout(() => {
-        if(confirm("⚠️ WIPE SYSTEM? This deletes ALL data and starts Order #1 again.")) {
-            db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 })
-                .then(() => window.location.reload());
+        if(confirm("⚠️ MASTER RESET? Clears all data and starts Order #1.")) {
+            db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }).then(() => window.location.reload());
         }
-    }, 1500);
+    }, 2000);
 };
 window.stopResetTimer = () => clearTimeout(resetTimer);
 
 function render() {
+    // Badge logic
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
 
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
 
-    // Cashier View
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
         <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
             <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative border border-slate-50">
@@ -63,9 +60,8 @@ function render() {
             <h3 class="font-bold text-center text-[13px] leading-tight truncate px-1">${p.name}</h3>
             <p class="text-blue-600 font-black text-center text-xs mt-1">$${parseFloat(p.price || 0).toFixed(2)}</p>
         </div>
-    `).join('') || '<div class="col-span-full text-center py-20 text-slate-300 italic">No products found</div>';
+    `).join('');
 
-    // Pending Orders
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending Review</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
             <div class="flex justify-between items-center mb-4">
@@ -82,7 +78,6 @@ function render() {
         </div>
     `).join('');
 
-    // History
     document.getElementById('history-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">Approved History</h2>` + history.map((h, idx) => `
         <div class="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
             <div class="flex justify-between items-center" onclick="toggleDetails(${idx})">
@@ -105,12 +100,11 @@ function render() {
         </div>
     `).join('');
 
-    // Inventory
     document.getElementById('inventory-list').innerHTML = products.map(p => `
         <div id="inv-${p.id}" class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4 transition-all">
             <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                 <img src="${p.img || 'https://placehold.co/100x100/f1f5f9/94a3b8?text=?'}" class="w-full h-full object-cover">
-                <input type="text" value="${p.img || ''}" placeholder="IMG URL" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
+                <input type="text" value="${p.img || ''}" placeholder="URL" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
             </div>
             <div class="flex-1 space-y-1">
                 <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-slate-50 p-2 rounded-xl outline-none">
@@ -123,7 +117,7 @@ function render() {
                 </div>
             </div>
             <div class="flex flex-col gap-3">
-                <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
+                <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
                 <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
             </div>
         </div>
@@ -147,17 +141,6 @@ function updateSidebarUI() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
     const topBadge = document.getElementById('cart-count-top');
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
-    const sideTotal = document.getElementById('side-total');
-    if(sideTotal) sideTotal.innerText = `$${total.toFixed(2)}`;
-    document.getElementById('sidebar-items').innerHTML = cart.map((i, idx) => `
-        <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
-            <div class="flex items-center gap-3">
-                <img src="${i.img}" class="w-8 h-8 rounded-lg object-cover">
-                <div><p class="font-bold text-xs">${i.name}</p><p class="text-[10px] text-blue-600 font-black">x${i.qty}</p></div>
-            </div>
-            <button onclick="cart.splice(${idx},1); updateSidebarUI();" class="text-slate-300"><i data-lucide="x-circle" class="w-4 h-4"></i></button>
-        </div>
-    `).join('') || '<p class="text-center py-10 opacity-20 italic">Empty</p>';
     lucide.createIcons();
 }
 
@@ -193,8 +176,8 @@ window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-1.5 p-3 active-tab':'flex flex-col items-center gap-1.5 p-3 text-slate-400';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-1.5 p-3 active-tab':'flex flex-col items-center gap-1.5 p-3 text-slate-400';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
 };
 
 window.toggleManageSection = sec => {
@@ -214,19 +197,31 @@ window.addItem = () => { products.push({ id: Date.now(), name: 'New Item', price
 
 window.removeItem = id => { 
     const el = document.getElementById(`inv-${id}`);
-    if(el) {
-        el.classList.add('deleting'); 
-        setTimeout(() => { products = products.filter(x => x.id !== id); pushData(); }, 300);
-    }
+    if(el) { el.classList.add('deleting'); setTimeout(() => { products = products.filter(x => x.id !== id); pushData(); }, 350); }
 };
 
 window.toggleFav = id => { const p = products.find(x => x.id === id); p.fav = !p.fav; pushData(); };
 window.toggleDetails = idx => document.getElementById(`details-${idx}`).classList.toggle('hidden');
 
+// HIGH PERFORMANCE SCANNER CONFIG
 window.openScanner = id => {
     document.getElementById('scan-modal').classList.remove('hidden');
     html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, text => {
+    
+    const config = {
+        fps: 30, // Max fluid speed
+        qrbox: { width: 280, height: 280 },
+        aspectRatio: 1.0, // Force square center-crop for non-distorted feed
+        videoConstraints: {
+            facingMode: "environment",
+            width: { min: 1280, ideal: 1920 },
+            height: { min: 720, ideal: 1080 },
+            focusMode: "continuous",
+            advanced: [{ brightness: 100 }, { contrast: 100 }] // Force high visibility
+        }
+    };
+
+    html5QrCode.start({ facingMode: "environment" }, config, text => {
         if(id) { 
             const p = products.find(x => x.id === id);
             p.sku = text; pushData();
