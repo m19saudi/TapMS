@@ -1,8 +1,7 @@
 let YOUR_UID = "";
-let db, auth;
+let db, auth, resetTimer;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
-let html5QrCode;
-let searchTerm = "";
+let html5QrCode, searchTerm = "";
 
 async function initTapMS() {
     try {
@@ -12,29 +11,20 @@ async function initTapMS() {
         firebase.initializeApp(config);
         db = firebase.database();
         auth = firebase.auth();
-        auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
-
-        auth.onAuthStateChanged((user) => {
+        auth.onAuthStateChanged(user => {
             const dot = document.getElementById('status-dot');
             if (user && user.uid === YOUR_UID) {
                 dot.className = "w-3 h-3 rounded-full dot-connected";
                 startSync();
             } else {
-                dot.className = "w-3 h-3 rounded-full dot-connecting animate-pulse";
                 auth.signInWithEmailAndPassword("admin@gmail.com", "123456").catch(e => console.error(e));
             }
         });
     } catch (e) { console.error(e); }
 }
 
-window.resetTapMS = () => {
-    if(confirm("Wipe all data and restart from Order #1?")) {
-        db.ref('/').set({ products, queue: [], history: [], orderCounter: 0 });
-    }
-};
-
 function startSync() {
-    db.ref('/').on('value', (snap) => {
+    db.ref('/').on('value', snap => {
         const data = snap.val() || {};
         products = data.products || [];
         queue = data.queue || [];
@@ -46,15 +36,24 @@ function startSync() {
 
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
 
+// Master Reset Logic (Hold Icon)
+window.startResetTimer = () => {
+    resetTimer = setTimeout(() => {
+        if(confirm("⚠️ WIPE SYSTEM? This deletes ALL data and starts Order #1 again.")) {
+            db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 })
+                .then(() => window.location.reload());
+        }
+    }, 1500);
+};
+window.stopResetTimer = () => clearTimeout(resetTimer);
+
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
 
-    // 1. Render Cashier (With Filter)
-    const filtered = products
-        .filter(p => p.name.toLowerCase().includes(searchTerm))
-        .sort((a,b) => b.fav - a.fav);
+    const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
 
+    // Cashier View
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
         <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
             <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative border border-slate-50">
@@ -64,9 +63,9 @@ function render() {
             <h3 class="font-bold text-center text-[13px] leading-tight truncate px-1">${p.name}</h3>
             <p class="text-blue-600 font-black text-center text-xs mt-1">$${parseFloat(p.price || 0).toFixed(2)}</p>
         </div>
-    `).join('') || '<div class="col-span-full text-center py-20 text-slate-300 font-bold italic">No items found</div>';
+    `).join('') || '<div class="col-span-full text-center py-20 text-slate-300 italic">No products found</div>';
 
-    // 2. Pending Review (At Top)
+    // Pending Orders
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending Review</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
             <div class="flex justify-between items-center mb-4">
@@ -83,16 +82,13 @@ function render() {
         </div>
     `).join('');
 
-    // 3. History (Expandable Details)
+    // History
     document.getElementById('history-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">Approved History</h2>` + history.map((h, idx) => `
         <div class="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm">
-            <div class="flex justify-between items-center cursor-pointer" onclick="toggleDetails(${idx})">
+            <div class="flex justify-between items-center" onclick="toggleDetails(${idx})">
                 <div class="flex items-center gap-3">
                     <span class="bg-slate-100 text-slate-400 font-black text-[10px] px-2 py-1 rounded-lg">#${h.orderNum}</span>
-                    <div>
-                        <p class="text-[10px] font-black text-blue-500 uppercase">${h.desc || 'Walk-in'}</p>
-                        <p class="font-bold text-slate-400 text-[10px]">${h.date}</p>
-                    </div>
+                    <div><p class="text-[10px] font-black text-blue-500 uppercase">${h.desc || 'Walk-in'}</p><p class="font-bold text-slate-400 text-[10px]">${h.date}</p></div>
                 </div>
                 <div class="flex items-center gap-4">
                     <button onclick="event.stopPropagation(); reorderFast(${idx})" class="p-2 bg-blue-50 text-blue-600 rounded-xl"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
@@ -109,26 +105,27 @@ function render() {
         </div>
     `).join('');
 
-    // 4. Inventory (Direct Delete)
+    // Inventory
     document.getElementById('inventory-list').innerHTML = products.map(p => `
-        <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
-            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50 border border-slate-100">
+        <div id="inv-${p.id}" class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4 transition-all">
+            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                 <img src="${p.img || 'https://placehold.co/100x100/f1f5f9/94a3b8?text=?'}" class="w-full h-full object-cover">
-                <input type="text" value="${p.img || ''}" placeholder="URL" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
+                <input type="text" value="${p.img || ''}" placeholder="IMG URL" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] p-1 text-center font-bold">
             </div>
-            <div class="flex-1 space-y-2">
+            <div class="flex-1 space-y-1">
                 <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-slate-50 p-2 rounded-xl outline-none">
                 <div class="flex items-center gap-2">
-                    <div class="bg-slate-100 px-3 py-2 rounded-xl flex items-center gap-1 w-24">
+                    <div class="bg-slate-100 px-2 py-1 rounded-xl flex items-center gap-1 w-20">
                         <span class="text-blue-600 font-black text-xs">$</span>
-                        <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="bg-transparent w-full font-black text-sm outline-none">
+                        <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="bg-transparent w-full font-black text-xs outline-none">
                     </div>
-                    <button onclick="openScanner(${p.id})" class="p-2 bg-slate-50 rounded-xl ${p.sku ? 'text-blue-600' : 'text-slate-400'}">
-                        <i data-lucide="scan" class="w-4 h-4"></i>
-                    </button>
+                    <button onclick="openScanner(${p.id})" class="p-2 bg-slate-50 rounded-xl ${p.sku ? 'text-blue-600' : 'text-slate-400'}"><i data-lucide="scan" class="w-4 h-4"></i></button>
                 </div>
             </div>
-            <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 p-2"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            <div class="flex flex-col gap-3">
+                <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
+                <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 p-1"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            </div>
         </div>
     `).join('');
 
@@ -136,12 +133,9 @@ function render() {
     lucide.createIcons();
 }
 
-window.handleProductTap = (id) => {
+window.handleProductTap = id => {
     const el = document.getElementById(`prod-${id}`);
-    if(el) {
-        el.classList.add('tap-feedback');
-        setTimeout(() => el.classList.remove('tap-feedback'), 150);
-    }
+    if(el) { el.classList.add('tap-feedback'); setTimeout(() => el.classList.remove('tap-feedback'), 150); }
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
@@ -151,16 +145,10 @@ window.handleProductTap = (id) => {
 function updateSidebarUI() {
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
-
     const topBadge = document.getElementById('cart-count-top');
-    if(topBadge) {
-        topBadge.innerText = totalQty;
-        topBadge.classList.toggle('hidden', totalQty === 0);
-    }
-
+    if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
     const sideTotal = document.getElementById('side-total');
     if(sideTotal) sideTotal.innerText = `$${total.toFixed(2)}`;
-    
     document.getElementById('sidebar-items').innerHTML = cart.map((i, idx) => `
         <div class="flex justify-between items-center bg-slate-50 p-3 rounded-2xl">
             <div class="flex items-center gap-3">
@@ -181,19 +169,17 @@ window.checkoutToQueue = () => {
     cart = []; updateSidebarUI(); pushData();
 };
 
-window.approveOrder = (idx) => {
+window.approveOrder = idx => {
     const ord = queue[idx];
     history.unshift({ ...ord, date: new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) });
-    queue.splice(idx, 1);
-    pushData();
+    queue.splice(idx, 1); pushData();
 };
 
-window.reorderFast = (idx) => {
+window.reorderFast = idx => {
     orderCounter++;
     const h = history[idx];
-    queue.unshift({ ...h, orderNum: orderCounter, date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
-    pushData();
-    showView('manage');
+    queue.unshift({ ...h, orderNum: orderCounter, date: new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) });
+    pushData(); showView('manage');
 };
 
 window.toggleSearch = () => {
@@ -202,19 +188,16 @@ window.toggleSearch = () => {
     if(!container.classList.contains('hidden')) document.getElementById('cashier-search').focus();
 };
 
-window.filterProducts = (val) => {
-    searchTerm = val.toLowerCase();
-    render();
-};
+window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 
-window.showView = (v) => {
+window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-1 p-3 active-tab':'flex flex-col items-center gap-1 p-3 text-slate-400';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-1 p-3 active-tab':'flex flex-col items-center gap-1 p-3 text-slate-400';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-1.5 p-3 active-tab':'flex flex-col items-center gap-1.5 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-1.5 p-3 active-tab':'flex flex-col items-center gap-1.5 p-3 text-slate-400';
 };
 
-window.toggleManageSection = (sec) => {
+window.toggleManageSection = sec => {
     document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
     document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
     document.getElementById('sub-btn-orders').className = (sec === 'orders') ? 'px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600' : 'px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400';
@@ -228,35 +211,42 @@ window.editItem = (id, f, v) => {
     if(p) { p[f] = (f==='price' ? parseFloat(v) || 0 : v); pushData(); }
 };
 window.addItem = () => { products.push({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, sku: '' }); pushData(); };
-window.removeItem = (id) => { products = products.filter(x => x.id !== id); pushData(); };
-window.toggleDetails = (idx) => { document.getElementById(`details-${idx}`).classList.toggle('hidden'); };
 
-window.openScanner = (id) => {
+window.removeItem = id => { 
+    const el = document.getElementById(`inv-${id}`);
+    if(el) {
+        el.classList.add('deleting'); 
+        setTimeout(() => { products = products.filter(x => x.id !== id); pushData(); }, 300);
+    }
+};
+
+window.toggleFav = id => { const p = products.find(x => x.id === id); p.fav = !p.fav; pushData(); };
+window.toggleDetails = idx => document.getElementById(`details-${idx}`).classList.toggle('hidden');
+
+window.openScanner = id => {
     document.getElementById('scan-modal').classList.remove('hidden');
     html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 220 }, (text) => {
+    html5QrCode.start({ facingMode: "environment" }, { fps: 15, qrbox: 250 }, text => {
         if(id) { 
             const p = products.find(x => x.id === id);
-            p.sku = text; pushData(); 
-            alert(`SKU assigned: ${text}`);
+            p.sku = text; pushData();
         } else {
             const p = products.find(x => x.sku === text);
             if(p) handleProductTap(p.id);
-            else alert("Unknown Barcode");
         }
         closeScanner();
-    }).catch(e => closeScanner());
+    }).catch(() => closeScanner());
 };
 
-window.closeScanner = () => { 
-    if(html5QrCode) html5QrCode.stop().then(() => document.getElementById('scan-modal').classList.add('hidden')); 
-    else document.getElementById('scan-modal').classList.add('hidden'); 
+window.closeScanner = () => {
+    if(html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => document.getElementById('scan-modal').classList.add('hidden'));
+    } else document.getElementById('scan-modal').classList.add('hidden');
 };
 
 window.editOrder = (idx, type) => {
     const source = type === 'queue' ? queue : history;
-    cart = [...source[idx].items]; 
-    source.splice(idx, 1);
+    cart = [...source[idx].items]; source.splice(idx, 1);
     pushData(); showView('cashier'); 
 };
 
