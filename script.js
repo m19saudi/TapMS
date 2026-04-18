@@ -1,121 +1,188 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>TapMS | Cloud POS</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-auth-compat.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; -webkit-tap-highlight-color: transparent; overflow: hidden; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
-        .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
-        .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
-        
-        /* NAVIGATION LIFT: Restoring previous alignment + extra 35px bottom lift */
-        .safe-bottom { 
-            padding-bottom: calc(env(safe-area-inset-bottom) + 75px); 
-            margin-bottom: 35px;
+let YOUR_UID = "";
+let db, auth, resetTimer, html5QrCode;
+let products = [], cart = [], queue = [], history = [], orderCounter = 0;
+let searchTerm = "";
+
+async function initTapMS() {
+    try {
+        const response = await fetch('/api/config');
+        const config = await response.json();
+        YOUR_UID = config.adminUid;
+        firebase.initializeApp(config);
+        db = firebase.database();
+        auth = firebase.auth();
+        auth.onAuthStateChanged(user => {
+            if (user && user.uid === YOUR_UID) {
+                document.getElementById('status-dot').className = "w-3 h-3 rounded-full dot-connected";
+                startSync();
+            } else {
+                auth.signInWithEmailAndPassword("admin@gmail.com", "123456").catch(e => console.error(e));
+            }
+        });
+    } catch (e) { console.error(e); }
+}
+
+function startSync() {
+    db.ref('/').on('value', snap => {
+        const data = snap.val() || {};
+        products = data.products || [];
+        queue = data.queue || [];
+        history = data.history || [];
+        orderCounter = data.orderCounter || 0;
+        render();
+    });
+}
+
+function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
+
+window.startResetTimer = () => {
+    resetTimer = setTimeout(() => {
+        if(confirm("Master Reset?")) {
+            db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }).then(() => window.location.reload());
         }
+    }, 2000);
+};
+window.stopResetTimer = () => clearTimeout(resetTimer);
 
-        main { padding-bottom: 350px !important; }
+function render() {
+    const navb = document.getElementById('nav-badge');
+    if(navb) navb.classList.toggle('hidden', queue.length === 0);
 
-        @keyframes tap-pop {
-            0% { transform: scale(1); }
-            50% { transform: scale(0.94); background: #f8fafc; }
-            100% { transform: scale(1); }
+    const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
+
+    // Cashier
+    document.getElementById('view-cashier').innerHTML = filtered.map(p => `
+        <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
+            <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative">
+                <img src="${p.img || 'https://placehold.co/400x400/f8fafc/cbd5e1?text=?'}" class="product-image">
+                ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-4 h-4 fill-current"></i></div>' : ''}
+            </div>
+            <h3 class="font-bold text-center text-[13px] truncate px-1">${p.name}</h3>
+            <p class="text-blue-600 font-black text-center text-xs mt-1">$${parseFloat(p.price || 0).toFixed(2)}</p>
+        </div>
+    `).join('');
+
+    // Pending Orders WITH ITEMS VISIBLE
+    document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending Review</h2>` + queue.map((ord, idx) => `
+        <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
+            <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
+                <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
+                <input type="text" value="${ord.desc || ''}" onchange="updateTag(${idx}, this.value)" placeholder="Order Name..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
+            </div>
+            <div class="flex flex-wrap gap-2 mb-4">
+                ${ord.items.map(i => `<span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}
+            </div>
+            <div class="flex gap-2">
+                <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
+                <button onclick="editOrder(${idx}, 'queue')" class="px-5 bg-white border border-blue-200 text-blue-600 rounded-2xl"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+    `).join('') || '<p class="text-center py-10 opacity-20">No orders</p>';
+
+    // Inventory
+    document.getElementById('inventory-list').innerHTML = products.map(p => `
+        <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
+            <div class="w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
+                <img src="${p.img || ''}" class="w-full h-full object-cover">
+            </div>
+            <div class="flex-1">
+                <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none">
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-blue-600 font-black text-xs">$</span>
+                    <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-16 font-black text-xs outline-none">
+                    <button onclick="openScanner(${p.id})" class="p-1.5 bg-slate-50 rounded-lg ${p.sku ? 'text-blue-600' : 'text-slate-300'}"><i data-lucide="scan" class="w-4 h-4"></i></button>
+                </div>
+            </div>
+            <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+        </div>
+    `).join('');
+
+    const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+    const topBadge = document.getElementById('cart-count-top');
+    if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
+    lucide.createIcons();
+}
+
+// Scanner Improvements (Brightness focus)
+window.openScanner = id => {
+    document.getElementById('scan-modal').classList.remove('hidden');
+    html5QrCode = new Html5Qrcode("reader");
+    const config = {
+        fps: 30,
+        qrbox: { width: 250, height: 250 },
+        videoConstraints: {
+            facingMode: "environment",
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+            focusMode: "continuous",
+            advanced: [{ brightness: 100 }, { contrast: 100 }]
         }
-        .tap-feedback { animation: tap-pop 0.15s ease-out; }
+    };
+    html5QrCode.start({ facingMode: "environment" }, config, text => {
+        if(id) { 
+            const p = products.find(x => x.id === id);
+            p.sku = text; pushData();
+        } else {
+            const p = products.find(x => x.sku === text);
+            if(p) handleProductTap(p.id);
+        }
+        closeScanner();
+    }).catch(() => closeScanner());
+};
 
-        .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
-        .dot-connecting { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+window.closeScanner = () => {
+    if(html5QrCode && html5QrCode.isScanning) {
+        html5QrCode.stop().then(() => document.getElementById('scan-modal').classList.add('hidden'));
+    } else document.getElementById('scan-modal').classList.add('hidden');
+};
 
-        #reader { width: 100% !important; border: none !important; border-radius: 2.5rem; overflow: hidden; background: #000; }
-        #reader video { border-radius: 2.5rem !important; object-fit: cover !important; }
-    </style>
-</head>
-<body class="bg-slate-50 text-slate-900 h-screen flex flex-col">
-    <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
-        <div class="flex items-center gap-3">
-            <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
-            <div class="bg-blue-600 p-2 rounded-2xl shadow-lg">
-                <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
-            </div>
-            <h1 onmousedown="startResetTimer()" onmouseup="stopResetTimer()" ontouchstart="startResetTimer()" ontouchend="stopResetTimer()"
-                class="font-extrabold text-xl tracking-tight select-none cursor-pointer">
-                TapMS
-            </h1>
-        </div>
-        <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all">
-                <i data-lucide="search" class="w-6 h-6 text-slate-500"></i>
-             </button>
-             <button onclick="openScanner(null)" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all">
-                <i data-lucide="scan-barcode" class="w-6 h-6 text-slate-500"></i>
-             </button>
-             <button onclick="checkoutToQueue()" class="xl:hidden relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
-                <i data-lucide="send" class="w-6 h-6 text-white"></i>
-                <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
-             </button>
-        </div>
-    </nav>
+window.handleProductTap = id => {
+    const el = document.getElementById(`prod-${id}`);
+    if(el) { el.classList.add('tap-feedback'); setTimeout(() => el.classList.remove('tap-feedback'), 150); }
+    const p = products.find(x => x.id === id);
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty: 1});
+    render();
+};
 
-    <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3 transition-all">
-        <div class="relative flex items-center">
-            <i data-lucide="search" class="absolute left-4 w-4 h-4 text-slate-400"></i>
-            <input type="text" id="cashier-search" placeholder="Search products..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
-        </div>
-    </div>
+window.checkoutToQueue = () => {
+    if(!cart.length) return;
+    orderCounter++;
+    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    queue.unshift({ orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() });
+    cart = []; render(); pushData();
+};
 
-    <div class="flex flex-1 overflow-hidden">
-        <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scroll">
-            <div id="view-cashier" class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"></div>
-            
-            <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-6">
-                <div class="flex bg-slate-100 p-1.5 rounded-2xl w-fit mx-auto mb-8">
-                    <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600">Orders</button>
-                    <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Stock</button>
-                </div>
-                <div id="sec-orders" class="space-y-4">
-                    <div id="pending-list" class="space-y-4"></div>
-                    <div id="history-list" class="space-y-4 mt-8 border-t pt-8"></div>
-                </div>
-                <div id="sec-stock" class="hidden space-y-6">
-                    <div class="flex justify-between items-center px-2">
-                        <h2 class="font-black text-2xl">Inventory</h2>
-                        <button onclick="addItem()" class="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg">+ Add Item</button>
-                    </div>
-                    <div id="inventory-list" class="space-y-3"></div>
-                </div>
-            </div>
-        </main>
-    </div>
+window.approveOrder = idx => {
+    history.unshift({ ...queue[idx], date: new Date().toLocaleString() });
+    queue.splice(idx, 1); pushData();
+};
 
-    <div id="scan-modal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-xl z-[100] hidden flex flex-col items-center justify-center p-6">
-        <div class="bg-white p-2 rounded-[3rem] w-full max-w-md shadow-2xl">
-            <div id="reader"></div>
-        </div>
-        <button onclick="closeScanner()" class="mt-10 px-12 py-4 bg-white/10 text-white rounded-full font-black uppercase text-[10px] tracking-widest border border-white/20">Close Scanner</button>
-    </div>
+window.showView = v => {
+    document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
+    document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
+};
 
-    <nav class="glass border-t border-slate-200 px-6 py-4 safe-bottom flex justify-around shrink-0 z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab transition-all">
-            <i data-lucide="shopping-basket" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Cashier</span>
-        </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
-            <div class="relative">
-                <i data-lucide="clipboard-list" class="w-7 h-7"></i>
-                <div id="nav-badge" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
-            </div>
-            <span class="text-[10px] font-black uppercase tracking-widest">Manage</span>
-        </button>
-    </nav>
-    <script src="script.js"></script>
-</body>
-</html>
+window.toggleManageSection = sec => {
+    document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
+    document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
+    document.getElementById('sub-btn-orders').className = (sec === 'orders') ? 'px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600' : 'px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400';
+    document.getElementById('sub-btn-stock').className = (sec === 'stock') ? 'px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600' : 'px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400';
+    lucide.createIcons();
+};
+
+window.toggleSearch = () => {
+    const s = document.getElementById('search-container');
+    s.classList.toggle('hidden');
+    if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus();
+};
+
+window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
+window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); p[f] = (f==='price'?parseFloat(v):v); pushData(); };
+window.addItem = () => { products.push({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false }); pushData(); };
+window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
+window.updateTag = (idx, v) => { queue[idx].desc = v; pushData(); };
+
+initTapMS();
