@@ -1,4 +1,4 @@
-// --- TapMS ENGINE: FIREBASE CONFIG ---
+// --- CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "YOUR_API_KEY",
     authDomain: "YOUR_PROJECT.firebaseapp.com",
@@ -9,61 +9,117 @@ const firebaseConfig = {
     appId: "YOUR_APP_ID"
 };
 
-// Initialize Firebase
+const YOUR_UID = "YOUR_COPY_PASTED_UID";
+
+// Initialize
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
+const auth = firebase.auth();
+auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL);
 
 let products = [], queue = [], history = [], orderCounter = 0, cart = [];
 
-// --- CLOUD SYNC: REAL-TIME LISTENER ---
-db.ref('/').on('value', (snapshot) => {
-    const data = snapshot.val();
-    if (data) {
+// --- AUTHENTICATION & SYNC ---
+auth.onAuthStateChanged((user) => {
+    const dot = document.getElementById('status-dot');
+    const text = document.getElementById('status-text');
+    if (user && user.uid === YOUR_UID) {
+        dot.className = "w-2 h-2 bg-emerald-500 rounded-full animate-pulse";
+        text.innerText = "Synced";
+        startSync();
+    } else {
+        dot.className = "w-2 h-2 bg-red-400 rounded-full";
+        text.innerText = "Disconnected";
+    }
+});
+
+window.manualLoginTrigger = () => {
+    if (auth.currentUser) {
+        if(confirm("Logout?")) auth.signOut().then(() => location.reload());
+    } else {
+        const email = prompt("Email:");
+        const pass = prompt("Password:");
+        if (email && pass) auth.signInWithEmailAndPassword(email, pass).catch(e => alert(e.message));
+    }
+};
+
+function startSync() {
+    db.ref('/').on('value', (snap) => {
+        const data = snap.val() || {};
         products = data.products || [];
         queue = data.queue || [];
         history = data.history || [];
         orderCounter = data.orderCounter || 0;
-        render(); // This calls the function inside the HTML file
-    }
-});
-
-// Push local changes to Cloud
-function pushData() {
-    db.ref('/').set({ products, queue, history, orderCounter });
+        render();
+    });
 }
 
-// Global functions for the HTML to call
-window.checkoutToQueue = () => {
-    if(!cart.length) return;
-    orderCounter++;
+function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
+
+// --- UI LOGIC ---
+function render() {
+    const cashierGrid = document.getElementById('view-cashier');
+    cashierGrid.innerHTML = products.map(p => `
+        <div onclick="addToCart(${p.id})" class="bg-white p-4 rounded-[2rem] border border-slate-100 shadow-sm product-card cursor-pointer">
+            <img src="${p.img}" class="w-full aspect-square object-cover rounded-2xl mb-3">
+            <h3 class="font-bold text-xs text-center truncate">${p.name}</h3>
+            <p class="text-blue-600 font-black text-center text-xs mt-1">$${p.price.toFixed(2)}</p>
+        </div>
+    `).join('');
+
+    document.getElementById('pending-list').innerHTML = queue.map((ord, idx) => `
+        <div class="bg-white p-4 rounded-3xl border border-slate-100 flex justify-between items-center shadow-sm">
+            <div class="flex items-center gap-3">
+                <span class="bg-blue-100 text-blue-600 font-black text-[10px] px-2 py-1 rounded-lg">#${ord.orderNum}</span>
+                <input type="text" value="${ord.desc}" onchange="updateTag(${idx}, this.value)" placeholder="Add Tag..." class="font-bold text-sm outline-none bg-transparent">
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="font-black">$${ord.total.toFixed(2)}</span>
+                <button onclick="approveOrder(${idx})" class="bg-blue-600 text-white px-5 py-2 rounded-xl text-[10px] font-black uppercase">Approve</button>
+            </div>
+        </div>
+    `).join('');
+
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    queue.unshift({ 
-        orderNum: orderCounter, 
-        items: [...cart], 
-        total, 
-        desc: "", 
-        date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) 
-    });
-    cart = [];
-    pushData();
+    document.getElementById('side-total').innerText = `$${total.toFixed(2)}`;
+    document.getElementById('sidebar-items').innerHTML = cart.map((i, idx) => `
+        <div class="flex justify-between items-center bg-slate-100/50 p-4 rounded-2xl">
+            <div class="font-bold text-sm">${i.name} <span class="text-slate-400 ml-2">x${i.qty}</span></div>
+            <button onclick="cart.splice(${idx},1); render();" class="text-slate-300"><i data-lucide="x-circle" class="w-5 h-5"></i></button>
+        </div>
+    `).join('');
+
+    lucide.createIcons();
+}
+
+// --- ACTIONS ---
+window.addToCart = (id) => {
+    const p = products.find(x => x.id === id);
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty:1});
+    render();
+};
+
+window.checkoutToQueue = () => {
+    if(!cart.length || !auth.currentUser) return;
+    orderCounter++;
+    queue.unshift({ orderNum: orderCounter, items: [...cart], total: cart.reduce((s,i)=>s+(i.price*i.qty),0), desc: "", date: new Date().toLocaleTimeString() });
+    cart = []; pushData();
 };
 
 window.approveOrder = (idx) => {
-    const ord = queue[idx];
-    history.unshift({ ...ord, date: new Date().toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}) });
-    queue.splice(idx, 1);
-    pushData();
+    history.unshift({...queue[idx], date: new Date().toLocaleString()});
+    queue.splice(idx, 1); pushData();
 };
 
 window.updateTag = (idx, val) => { queue[idx].desc = val; pushData(); };
-window.deleteHistory = (idx) => { history.splice(idx, 1); pushData(); };
-window.toggleFav = (id) => { const p = products.find(x => x.id === id); p.fav = !p.fav; pushData(); };
-window.removeItem = (id) => { products = products.filter(x => x.id !== id); pushData(); };
-window.editItem = (id, field, val) => { 
-    products.find(x => x.id === id)[field] = (field==='price' ? parseFloat(val) : val); 
-    pushData(); 
+window.showView = (v) => {
+    document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
+    document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-1 p-3 active-tab':'flex flex-col items-center gap-1 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-1 p-3 active-tab':'flex flex-col items-center gap-1 p-3 text-slate-400';
 };
-window.addItem = () => {
-    products.push({ id: Date.now(), name: 'New Item', price: 0, img: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400', fav: false });
-    pushData();
+window.toggleManageSection = (s) => {
+    document.getElementById('sec-orders').classList.toggle('hidden', s !== 'orders');
+    document.getElementById('sec-stock').classList.toggle('hidden', s !== 'stock');
 };
