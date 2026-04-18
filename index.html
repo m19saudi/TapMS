@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TapMS | Cloud POS</title>
     
-    <link rel="icon" type="image/png" href="https://i.ibb.co/S7mS68R/favicon.png">
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/9402/9402314.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -21,7 +21,6 @@
         .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         
-        /* YOUR 55PX LIFT */
         .safe-bottom { 
             padding-bottom: calc(env(safe-area-inset-bottom) + 70px); 
             margin-bottom: 55px;
@@ -29,7 +28,6 @@
 
         main { padding-bottom: 420px !important; }
 
-        /* FIXED CASHIER FEEDBACK ANIMATION */
         @keyframes tap-pop {
             0% { transform: scale(1); }
             40% { transform: scale(0.90); background: #f1f5f9; }
@@ -43,7 +41,6 @@
         #reader { width: 100% !important; border: none !important; border-radius: 2.5rem; overflow: hidden; background: #000; }
         #reader video { border-radius: 2.5rem !important; object-fit: cover !important; }
         
-        /* History Expansion */
         .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease-in-out; overflow: hidden; }
         .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
     </style>
@@ -75,18 +72,15 @@
     <div class="flex flex-1 overflow-hidden">
         <main class="flex-1 overflow-y-auto p-4 md:p-6 custom-scroll">
             <div id="view-cashier" class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6"></div>
-            
             <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-6">
                 <div class="flex bg-slate-100 p-1.5 rounded-2xl w-fit mx-auto mb-8">
                     <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600">Orders</button>
                     <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Stock</button>
                 </div>
-                
                 <div id="sec-orders" class="space-y-4">
                     <div id="pending-list" class="space-y-4"></div>
                     <div id="history-list" class="space-y-4 mt-8 border-t pt-8"></div>
                 </div>
-                
                 <div id="sec-stock" class="hidden space-y-6">
                     <div class="flex justify-between items-center px-2">
                         <h2 class="font-black text-2xl">Inventory</h2>
