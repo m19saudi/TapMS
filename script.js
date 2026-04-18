@@ -41,7 +41,6 @@ function render() {
 
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
 
-    // Cashier
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
         <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
             <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative pointer-events-none">
@@ -53,7 +52,6 @@ function render() {
         </div>
     `).join('');
 
-    // Pending Orders
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
             <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
@@ -70,13 +68,12 @@ function render() {
         </div>
     `).join('');
 
-    // EXPANDABLE HISTORY
     document.getElementById('history-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
         <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 shadow-sm transition-all overflow-hidden" onclick="toggleOrderExpand(${idx})">
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-3">
                     <span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span>
-                    <h4 class="font-bold text-slate-700 text-sm">${h.desc || 'Order'}</h4>
+                    <input type="text" value="${h.desc || ''}" onchange="event.stopPropagation(); updateTag('history', ${idx}, this.value)" class="font-bold text-slate-700 text-sm bg-transparent outline-none">
                 </div>
                 <div class="flex items-center gap-3">
                     <p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p>
@@ -98,7 +95,6 @@ function render() {
         </div>
     `).join('') || '<p class="text-center py-10 opacity-20">Empty History</p>';
 
-    // Inventory
     document.getElementById('inventory-list').innerHTML = products.map(p => `
         <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
             <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
@@ -131,8 +127,6 @@ window.handleProductTap = id => {
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    
-    // Smoothly update badge without full render
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
     const topBadge = document.getElementById('cart-count-top');
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.remove('hidden'); }
@@ -152,9 +146,22 @@ window.editOrderDetails = idx => {
 
 window.reorder = idx => {
     const item = history[idx];
-    cart = JSON.parse(JSON.stringify(item.items));
-    window.showView('cashier');
-    render();
+    orderCounter++;
+    // Directly push to pending queue instead of current cart
+    queue.unshift({ 
+        orderNum: orderCounter, 
+        items: JSON.parse(JSON.stringify(item.items)), 
+        total: item.total, 
+        desc: item.desc || "", 
+        date: new Date().toLocaleTimeString() 
+    });
+    pushData();
+};
+
+window.updateTag = (list, idx, val) => {
+    if(list === 'queue') queue[idx].desc = val;
+    else history[idx].desc = val;
+    pushData(); // Immediate save to Firebase
 };
 
 window.toggleManageSection = sec => {
