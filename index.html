@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TapMS | Cloud POS</title>
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/9402/9402314.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://unpkg.com/html5-qrcode"></script>
@@ -18,16 +17,15 @@
         .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         
-        /* Raised Mobile Navigation (approx 1cm lift) */
+        /* THE LIFT: High enough to clear system bars and show text labels */
         .safe-bottom { 
-            padding-bottom: calc(env(safe-area-inset-bottom) + 40px); 
-            margin-bottom: 20px;
+            padding-bottom: calc(env(safe-area-inset-bottom) + 55px); 
+            margin-bottom: 25px;
         }
 
-        /* Ensure scroll area doesn't get hidden behind the raised nav */
-        main { padding-bottom: 220px !important; }
+        /* Scroll margin to prevent content from hiding behind raised nav */
+        main { padding-bottom: 260px !important; }
 
-        /* Tap Feedback Animation */
         @keyframes tap-pop {
             0% { transform: scale(1); }
             50% { transform: scale(0.94); background: #f8fafc; }
@@ -35,9 +33,14 @@
         }
         .tap-feedback { animation: tap-pop 0.15s ease-out; }
 
+        @keyframes delete-shrink {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0.7); opacity: 0; height: 0; margin: 0; padding: 0; }
+        }
+        .deleting { animation: delete-shrink 0.3s forwards; pointer-events: none; }
+
         .dot-connecting { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
-
         .custom-scroll::-webkit-scrollbar { width: 4px; }
         .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
     </style>
@@ -45,7 +48,12 @@
 <body class="bg-slate-50 text-slate-900 h-screen flex flex-col">
     <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
         <div class="flex items-center gap-3">
-            <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse transition-colors duration-500"></div>
+            <button onmousedown="startResetTimer()" onmouseup="stopResetTimer()" onmouseleave="stopResetTimer()" 
+                    ontouchstart="startResetTimer()" ontouchend="stopResetTimer()"
+                    class="p-2 text-slate-300 hover:text-red-500 transition-colors active:scale-75" title="Hold to Reset">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+            <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
             <div class="bg-blue-600 p-2 rounded-2xl shadow-lg">
                 <i data-lucide="layout-grid" class="w-5 h-5 text-white"></i>
             </div>
@@ -68,9 +76,7 @@
     <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3 transition-all">
         <div class="relative flex items-center">
             <i data-lucide="search" class="absolute left-4 w-4 h-4 text-slate-400"></i>
-            <input type="text" id="cashier-search" placeholder="Quick find product..." 
-                   oninput="filterProducts(this.value)"
-                   class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none focus:ring-2 ring-blue-500/20">
+            <input type="text" id="cashier-search" placeholder="Search product name..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
         </div>
     </div>
 
@@ -83,12 +89,10 @@
                     <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase transition-all bg-white shadow-sm text-blue-600">Orders</button>
                     <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase transition-all text-slate-400">Product Master</button>
                 </div>
-                
                 <div id="sec-orders" class="space-y-4">
                     <div id="pending-list" class="space-y-4"></div>
                     <div id="history-list" class="space-y-4 mt-8 border-t pt-8"></div>
                 </div>
-
                 <div id="sec-stock" class="hidden space-y-6">
                     <div class="flex justify-between items-center px-2">
                         <h2 class="font-black text-2xl">Inventory</h2>
@@ -104,7 +108,7 @@
             <div id="sidebar-items" class="flex-1 overflow-y-auto space-y-4 pr-2 custom-scroll"></div>
             <div class="pt-6 border-t border-slate-200 mt-6">
                 <div class="flex justify-between items-end mb-6">
-                    <span class="text-slate-400 font-bold uppercase text-[10px] tracking-widest">Total</span>
+                    <span class="text-slate-400 font-bold uppercase text-[10px]">Total</span>
                     <span id="side-total" class="text-3xl font-black text-blue-600">$0.00</span>
                 </div>
                 <button onclick="checkoutToQueue()" class="w-full py-5 bg-slate-900 text-white rounded-3xl font-black text-lg shadow-xl uppercase">Checkout</button>
@@ -114,25 +118,20 @@
 
     <div id="scan-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] hidden flex items-center justify-center p-6">
         <div class="bg-white p-8 rounded-[3rem] w-full max-w-sm shadow-2xl">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="font-black">Scan Barcode</h3>
-                <button onclick="closeScanner()" class="p-2 bg-slate-100 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
-            </div>
             <div id="reader"></div>
+            <button onclick="closeScanner()" class="w-full mt-6 py-4 bg-slate-100 rounded-2xl font-black uppercase text-xs tracking-widest text-slate-500">Cancel</button>
         </div>
     </div>
 
-    <nav class="glass border-t border-slate-200 px-10 py-4 safe-bottom flex justify-around shrink-0 z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-1 p-3 active-tab transition-all">
+    <nav class="glass border-t border-slate-200 px-6 py-4 safe-bottom flex justify-around shrink-0 z-50">
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-1.5 p-3 active-tab transition-all">
             <i data-lucide="shopping-basket" class="w-6 h-6"></i>
-            <span class="text-[10px] font-bold uppercase">Cashier</span>
+            <span class="text-[9px] font-black uppercase tracking-widest">Cashier</span>
         </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-1 p-3 text-slate-400 transition-all">
-            <div class="relative">
-                <i data-lucide="clipboard-list" class="w-6 h-6"></i>
-                <div id="nav-badge" class="hidden absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
-            </div>
-            <span class="text-[10px] font-bold uppercase">Manage</span>
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-1.5 p-3 text-slate-400 transition-all">
+            <i data-lucide="clipboard-list" class="w-6 h-6"></i>
+            <div id="nav-badge" class="hidden absolute top-2 right-6 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+            <span class="text-[9px] font-black uppercase tracking-widest">Manage</span>
         </button>
     </nav>
     <script src="script.js"></script>
