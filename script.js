@@ -52,9 +52,9 @@ function render() {
 
     // Cashier
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
-        <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
+        <div id="prod-${p.id}" class="bg-white p-4 rounded-[2.5rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
             <div class="aspect-square mb-3 overflow-hidden rounded-[1.8rem] bg-slate-50 relative">
-                <img src="${p.img || 'https://placehold.co/400x400/f8fafc/cbd5e1?text=?'}" class="product-image">
+                <img src="${p.img || ''}" class="product-image">
                 ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-4 h-4 fill-current"></i></div>' : ''}
             </div>
             <h3 class="font-bold text-center text-[13px] truncate px-1">${p.name}</h3>
@@ -62,24 +62,24 @@ function render() {
         </div>
     `).join('');
 
-    // Pending Orders WITH ITEMS VISIBLE
+    // Pending Review WITH ITEM PREVIEW
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending Review</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
             <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
                 <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
-                <input type="text" value="${ord.desc || ''}" onchange="updateTag(${idx}, this.value)" placeholder="Order Name..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
+                <input type="text" value="${ord.desc || ''}" onchange="updateTag(${idx}, this.value)" class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
             </div>
             <div class="flex flex-wrap gap-2 mb-4">
-                ${ord.items.map(i => `<span class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}
+                ${ord.items.map(i => `<span class="bg-blue-100/50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}
             </div>
             <div class="flex gap-2">
                 <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
                 <button onclick="editOrder(${idx}, 'queue')" class="px-5 bg-white border border-blue-200 text-blue-600 rounded-2xl"><i data-lucide="edit-3" class="w-5 h-5"></i></button>
             </div>
         </div>
-    `).join('') || '<p class="text-center py-10 opacity-20">No orders</p>';
+    `).join('');
 
-    // Inventory
+    // Inventory WITH SCANNER RESTORED
     document.getElementById('inventory-list').innerHTML = products.map(p => `
         <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
             <div class="w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
@@ -103,22 +103,11 @@ function render() {
     lucide.createIcons();
 }
 
-// Scanner Improvements (Brightness focus)
+// Scanner Logic
 window.openScanner = id => {
     document.getElementById('scan-modal').classList.remove('hidden');
     html5QrCode = new Html5Qrcode("reader");
-    const config = {
-        fps: 30,
-        qrbox: { width: 250, height: 250 },
-        videoConstraints: {
-            facingMode: "environment",
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            focusMode: "continuous",
-            advanced: [{ brightness: 100 }, { contrast: 100 }]
-        }
-    };
-    html5QrCode.start({ facingMode: "environment" }, config, text => {
+    html5QrCode.start({ facingMode: "environment" }, { fps: 30, qrbox: 250 }, text => {
         if(id) { 
             const p = products.find(x => x.id === id);
             p.sku = text; pushData();
