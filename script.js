@@ -3,7 +3,6 @@ let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
-// Instant Wipe on Click
 window.confirmWipe = () => {
     if (confirm("Wipe all data and reset system?")) {
         db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 });
@@ -47,7 +46,7 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Categories Datalist for typing or choosing
+    // Persistent Category List: Always pulled from the full products list
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
     const dl = document.getElementById('category-list');
     if(dl) dl.innerHTML = uniqueCats.map(c => `<option value="${c}">`).join('');
@@ -65,11 +64,10 @@ function render() {
         (currentCat === "All" || (p.cat || "") === currentCat)
     ).sort((a,b) => b.fav - a.fav);
 
-    // Cashier UI
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm active:scale-95 transition-all" onclick="handleProductTap(${p.id})">
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
@@ -80,7 +78,6 @@ function render() {
         `).join('');
     }
 
-    // Inventory UI with "Category: None"
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map(p => `
@@ -92,7 +89,7 @@ function render() {
                 <div class="flex-1">
                     <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none">
                     <div class="flex items-center gap-2 mt-1">
-                        <input type="text" list="category-list" value="${p.cat || ''}" onchange="editItem(${p.id}, 'cat', this.value)" placeholder="Category: None" class="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md outline-none">
+                        <input type="text" list="category-list" value="${p.cat || ''}" onchange="editItem(${p.id}, 'cat', this.value)" placeholder="None" class="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md outline-none">
                         <span class="text-blue-600 font-black text-xs">$</span>
                         <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-16 font-black text-xs outline-none">
                     </div>
@@ -105,7 +102,11 @@ function render() {
         `).join('');
     }
 
-    // Pending Orders render
+    renderPendingAndHistory();
+    lucide.createIcons();
+}
+
+function renderPendingAndHistory() {
     const pendingList = document.getElementById('pending-list');
     if(pendingList) {
         pendingList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
@@ -125,7 +126,6 @@ function render() {
         `).join('');
     }
 
-    // History render
     const historyList = document.getElementById('history-list');
     if(historyList) {
         historyList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
@@ -153,27 +153,11 @@ function render() {
             </div>
         `).join('');
     }
-
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
     const topBadge = document.getElementById('cart-count-top');
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
-    lucide.createIcons();
 }
 
-// Logic: Add new items to the top
-window.addItem = () => { 
-    products.unshift({ 
-        id: Date.now(), 
-        name: 'New Item', 
-        price: 0, 
-        img: '', 
-        fav: false, 
-        cat: '' // Default None
-    }); 
-    pushData(); 
-};
-
-// ... existing helper functions (checkoutToQueue, showView, etc.)
 window.handleProductTap = id => {
     const el = document.getElementById(`prod-${id}`);
     if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
@@ -182,6 +166,13 @@ window.handleProductTap = id => {
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
     render();
 };
+
+window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
+window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
+window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
+window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
+window.setCategory = (cat) => { currentCat = cat; render(); };
+window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 
 window.checkoutToQueue = () => {
     if(!cart.length) return;
@@ -205,19 +196,10 @@ window.toggleManageSection = sec => {
     document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
     document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
     const bO = document.getElementById('sub-btn-orders'), bS = document.getElementById('sub-btn-stock');
-    if(sec === 'orders') {
-        bO.className = "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600";
-        bS.className = "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
-    } else {
-        bS.className = "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600";
-        bO.className = "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
-    }
+    bO.className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
+    bS.className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
 
-window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); p[f] = (f==='price'?parseFloat(v):v); pushData(); };
-window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
-window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
-window.setCategory = (cat) => { currentCat = cat; render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.reorder = idx => { const item = history[idx]; orderCounter++; queue.unshift({ ...item, orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
 window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = val; else history[idx].desc = val; pushData(); };
@@ -225,7 +207,6 @@ window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(i
 window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
 
-// Database Utils
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
 window.executeExport = () => {
@@ -239,6 +220,7 @@ window.importDatabase = (e) => {
     reader.onload = (ev) => { try { products = JSON.parse(ev.target.result); pushData(); alert("Restore Complete!"); closeBackupModal(); } catch { alert("Invalid File!"); } };
     reader.readAsText(e.target.files[0]);
 };
+
 window.toggleSummary = () => {
     summaryEnabled = !summaryEnabled;
     const dot = document.getElementById('toggle-dot');
@@ -256,6 +238,5 @@ function openSummary(ord) {
 }
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
-window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 
 initTapMS();
