@@ -63,7 +63,7 @@ function render() {
         </div>
     `).join('');
 
-    // Stock List with Category Quick Picker
+    // Stock List with Category Quick Picker preserved
     document.getElementById('inventory-list').innerHTML = [...products].reverse().map(p => `
         <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 flex items-center gap-5">
             <div class="w-16 h-16 shrink-0 rounded-2xl bg-slate-50 overflow-hidden relative">
@@ -133,7 +133,7 @@ function openSummary(ord) {
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
 
 function renderManageLists() {
-    document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-xl px-4 uppercase">Queue</h2>` + queue.map((ord, idx) => `
+    document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-xl px-4 uppercase">Pending Orders</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-6 rounded-[3rem] border-2 border-blue-100 mb-4">
             <div class="flex justify-between mb-4">
                 <span class="text-blue-600 font-black text-xs">#${ord.orderNum}</span>
@@ -144,7 +144,7 @@ function renderManageLists() {
         </div>
     `).join('');
 
-    document.getElementById('history-list').innerHTML = `<h2 class="font-black text-xl px-4 text-slate-400 uppercase">Archive</h2>` + history.map((h, idx) => `
+    document.getElementById('history-list').innerHTML = `<h2 class="font-black text-xl px-4 text-slate-400 uppercase">History</h2>` + history.map((h, idx) => `
         <div class="bg-white p-6 rounded-[3rem] border border-slate-100 mb-4 flex justify-between items-center">
             <div>
                 <span class="text-slate-400 font-black text-xs block">#${h.orderNum}</span>
@@ -159,8 +159,8 @@ window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 active-tab p-5 transition-all':'flex flex-col items-center gap-2 text-slate-400 p-5 transition-all';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 active-tab p-5 transition-all':'flex flex-col items-center gap-2 text-slate-400 p-5 transition-all';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 active-tab p-4 transition-all':'flex flex-col items-center gap-2 text-slate-400 p-4 transition-all';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 active-tab p-4 transition-all':'flex flex-col items-center gap-2 text-slate-400 p-4 transition-all';
     lucide.createIcons();
 };
 
