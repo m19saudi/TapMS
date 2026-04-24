@@ -36,9 +36,17 @@
 
         .cart-badge { position: absolute; top: -4px; right: -8px; background: #ef4444; color: white; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 99px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
 
-        main { padding-bottom: 450px; }
-        @media (min-width: 1024px) { main { padding-bottom: 120px; padding-left: 10%; padding-right: 10%; } }
-
+        main { padding-bottom: 80px; }
+        @media (min-width: 1024px) { main { padding-bottom: 80px; padding-left: 10%; padding-right: 10%; } }
+/* RESTORED: Premium Original Bottom Nav with fixed height */
+nav.fixed.bottom-0 {
+    height: 80px; /* Forces the same height as top nav */
+    padding-top: 12px;
+    padding-bottom: env(safe-area-inset-bottom, 12px); /* Protects from phone home bar */
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+}
         #summary-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #summary-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
