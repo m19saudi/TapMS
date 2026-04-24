@@ -3,7 +3,6 @@ let db, auth, resetTimer;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
-// WIPE FUNCTIONS
 function promptWipe() { if(confirm("Wipe all data?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }); location.reload(); } }
 function startReset() { resetTimer = setTimeout(() => { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }); location.reload(); }, 1000); }
 function stopReset() { clearTimeout(resetTimer); }
@@ -52,20 +51,17 @@ window.toggleSummary = () => {
 };
 
 function render() {
-    // Nav Badges
     const navb = document.getElementById('nav-badge');
     const ordn = document.getElementById('order-notif');
     const hasQueue = queue.length > 0;
     if(navb) navb.classList.toggle('hidden', !hasQueue);
     if(ordn) ordn.classList.toggle('hidden', !hasQueue);
 
-    // Categories
     const cats = ["All", ...new Set(products.map(p => p.category || "General"))];
     document.getElementById('cat-bar').innerHTML = cats.map(c => `
         <button onclick="setCat('${c}')" class="px-6 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-lg' : 'bg-white text-slate-400 border border-slate-100'}">${c}</button>
     `).join('');
 
-    // Cashier View
     const filtered = products.filter(p => (currentCat === "All" || (p.category || "General") === currentCat) && p.name.toLowerCase().includes(searchTerm)).sort((a,b) => b.fav - a.fav);
     document.getElementById('view-cashier').innerHTML = filtered.map(p => `
         <div id="prod-${p.id}" class="item-card bg-white p-5 rounded-[3rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
@@ -78,7 +74,7 @@ function render() {
         </div>
     `).join('');
 
-    // Stock View (Newest first)
+    // Stock View - RECENTLY ADDED AT TOP
     const stockList = [...products].sort((a, b) => b.id - a.id);
     document.getElementById('inventory-list').innerHTML = stockList.map(p => `
         <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 flex items-center gap-5 shadow-sm">
@@ -86,13 +82,15 @@ function render() {
                 <img src="${p.img || ''}" class="w-full h-full object-cover">
                 <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
             </div>
-            <div class="flex-1">
+            <div class="flex-1 overflow-hidden">
                 <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-base bg-transparent outline-none uppercase tracking-tight">
-                <div class="flex flex-wrap gap-1.5 mt-1.5">
-                    <input type="text" placeholder="Cat..." value="${p.category || ''}" onchange="editItem(${p.id}, 'category', this.value)" class="text-[10px] font-black text-blue-600 bg-transparent outline-none uppercase w-20">
-                    ${cats.filter(c => c !== "All" && c !== p.category).slice(0, 2).map(c => `
-                        <button onclick="editItem(${p.id}, 'category', '${c}')" class="text-[8px] font-bold bg-slate-50 text-slate-400 px-2 py-1 rounded-lg border border-slate-100 uppercase">${c}</button>
-                    `).join('')}
+                <div class="flex items-center gap-2 mt-2">
+                    <input type="text" placeholder="New Cat..." value="${p.category || ''}" onchange="editItem(${p.id}, 'category', this.value)" class="text-[10px] font-black text-blue-600 bg-slate-50 px-2 py-1 rounded-lg outline-none uppercase w-24">
+                    <div class="flex gap-1 overflow-x-auto no-scrollbar py-1">
+                        ${cats.filter(c => c !== "All" && c !== p.category).map(c => `
+                            <button onclick="editItem(${p.id}, 'category', '${c}')" class="shrink-0 text-[8px] font-bold bg-white text-slate-400 px-2 py-1 rounded-lg border border-slate-100 uppercase hover:text-blue-500">${c}</button>
+                        `).join('')}
+                    </div>
                 </div>
                 <div class="flex items-center gap-2 mt-2">
                     <span class="text-blue-600 font-black text-sm">$</span>
@@ -123,10 +121,7 @@ window.handleProductTap = id => {
 function updateCartCount() {
     const totalQty = cart.reduce((s, i) => s + i.qty, 0);
     const badge = document.getElementById('cart-count-top');
-    if(badge) {
-        badge.innerText = totalQty;
-        badge.classList.toggle('hidden', totalQty === 0);
-    }
+    if(badge) { badge.innerText = totalQty; badge.classList.toggle('hidden', totalQty === 0); }
 }
 
 window.checkoutToQueue = () => {
@@ -134,16 +129,11 @@ window.checkoutToQueue = () => {
     const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
     orderCounter++;
     const newOrder = { orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() };
-    
     queue.unshift(newOrder);
-    
     if (summaryEnabled) {
         openSummary(newOrder);
     } else {
-        // FIXED: Cart is wiped immediately if summary is OFF
-        cart = [];
-        render();
-        pushData();
+        cart = []; render(); pushData();
     }
 };
 
@@ -157,26 +147,21 @@ function openSummary(ord) {
         </div>
     `).join('');
     document.getElementById('summary-overlay').classList.add('active');
-    // FIXED: Cart wiped after summary popup opens
-    cart = [];
-    render();
-    pushData();
+    cart = []; render(); pushData();
 }
 
-window.closeSummary = () => {
-    document.getElementById('summary-overlay').classList.remove('active');
-};
+window.closeSummary = () => { document.getElementById('summary-overlay').classList.remove('active'); };
 
 function renderManageLists() {
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-xl px-4 mb-4 uppercase">Pending Approval</h2>` + queue.map((ord, idx) => `
         <div class="bg-blue-50/50 p-6 rounded-[3rem] border-2 border-blue-100 mb-4">
             <div class="bg-white px-4 py-3 rounded-2xl border border-blue-100 flex items-center gap-3 mb-4">
-                <span class="text-blue-600 font-black text-xs tracking-tighter">#${ord.orderNum}</span>
-                <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Add Tag (Customer Name...)" class="bg-transparent font-bold text-blue-700 text-sm outline-none w-full uppercase">
+                <span class="text-blue-600 font-black text-xs">#${ord.orderNum}</span>
+                <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Add Tag..." class="bg-transparent font-bold text-blue-700 text-sm outline-none w-full uppercase">
             </div>
-            <div class="space-y-1 mb-6 px-2">${ord.items.map(i => `<div class="text-[11px] font-bold text-slate-500 uppercase">${i.name} <span class="text-blue-400">x${i.qty}</span></div>`).join('')}</div>
+            <div class="space-y-1 mb-6 px-2">${ord.items.map(i => `<div class="text-[11px] font-bold text-slate-500 uppercase">${i.name} x${i.qty}</div>`).join('')}</div>
             <div class="flex gap-3">
-                <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-[1.8rem] font-black uppercase text-[11px] tracking-widest shadow-lg active:scale-95 transition-all">Approve $${ord.total.toFixed(2)}</button>
+                <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-[1.8rem] font-black uppercase text-[11px] tracking-widest shadow-lg">Approve $${ord.total.toFixed(2)}</button>
                 <button onclick="removeItemFromList('queue', ${idx})" class="px-6 bg-white border border-red-100 text-red-400 rounded-[1.8rem]"><i data-lucide="trash-2" class="w-6 h-6"></i></button>
             </div>
         </div>
@@ -187,7 +172,7 @@ function renderManageLists() {
             <div class="flex justify-between items-center">
                 <div class="flex items-center gap-4">
                     <span class="text-slate-400 font-black text-xs">#${h.orderNum}</span>
-                    <input type="text" value="${h.desc || ''}" onchange="event.stopPropagation(); updateTag('history', ${idx}, this.value)" class="font-bold text-slate-800 text-sm bg-transparent outline-none uppercase tracking-tight">
+                    <input type="text" value="${h.desc || ''}" onchange="event.stopPropagation(); updateTag('history', ${idx}, this.value)" class="font-bold text-slate-800 text-sm bg-transparent outline-none uppercase">
                 </div>
                 <p class="font-black text-blue-600 text-base">$${h.total.toFixed(2)}</p>
             </div>
@@ -222,6 +207,7 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); p[f] = (f==='price'?parseFloat(v):v); pushData(); };
 window.addItem = () => { products.push({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, category: 'General' }); pushData(); };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
+window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 
 initTapMS();
