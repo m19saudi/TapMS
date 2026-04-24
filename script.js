@@ -234,9 +234,16 @@ window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(i
 window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); p[f] = (f==='price'?parseFloat(v):v); pushData(); };
 
-// Recent Items to Top Fix
+// Updated addItem logic for empty default category
 window.addItem = () => { 
-    products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: 'Other' }); 
+    products.unshift({ 
+        id: Date.now(), 
+        name: 'New Item', 
+        price: 0, 
+        img: '', 
+        fav: false, 
+        cat: '' // Changed from 'Other' to empty for easier typing/selection
+    }); 
     pushData(); 
 };
 
