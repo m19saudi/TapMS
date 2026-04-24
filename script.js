@@ -48,14 +48,12 @@ window.toggleSummary = () => {
     const label = document.getElementById('summary-toggle-ui').querySelector('span');
     dot.className = summaryEnabled ? "w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]" : "w-2 h-2 rounded-full bg-slate-300";
     label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF";
-    label.className = summaryEnabled ? "text-[9px] font-black uppercase text-blue-600 tracking-wider" : "text-[9px] font-black uppercase text-slate-500 tracking-wider";
 };
 
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
 
-    // Render Category Bar
     const cats = ["All", ...new Set(products.map(p => p.category || "General"))];
     document.getElementById('cat-bar').innerHTML = cats.map(c => `
         <button onclick="setCat('${c}')" class="px-5 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">${c}</button>
@@ -74,8 +72,71 @@ function render() {
         </div>
     `).join('');
 
+    // Stock List - Sorted RECENTLY ADDED first
+    const stockList = [...products].sort((a, b) => b.id - a.id);
+    document.getElementById('inventory-list').innerHTML = stockList.map(p => `
+        <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
+            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
+                <img src="${p.img || ''}" class="w-full h-full object-cover">
+                <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
+            </div>
+            <div class="flex-1">
+                <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none uppercase">
+                <div class="flex flex-wrap gap-1 mt-1">
+                    <input type="text" placeholder="Category" value="${p.category || ''}" onchange="editItem(${p.id}, 'category', this.value)" class="text-[9px] font-black text-blue-600 bg-transparent outline-none uppercase w-20">
+                    ${cats.filter(c => c !== "All" && c !== p.category).slice(0, 2).map(c => `
+                        <button onclick="editItem(${p.id}, 'category', '${c}')" class="text-[7px] font-bold bg-slate-50 text-slate-400 px-1.5 py-0.5 rounded border border-slate-100 uppercase">${c}</button>
+                    `).join('')}
+                </div>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="text-blue-600 font-black text-xs">$</span>
+                    <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-16 font-black text-xs outline-none">
+                </div>
+            </div>
+            <div class="flex flex-col gap-2">
+                <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
+                <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+            </div>
+        </div>
+    `).join('');
+
+    renderHistoryAndPending();
+    lucide.createIcons();
+}
+
+window.handleProductTap = id => {
+    const el = document.getElementById(`prod-${id}`);
+    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
+    const p = products.find(x => x.id === id);
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty: 1});
+    const totalQty = cart.reduce((s, i) => s + i.qty, 0);
+    const topBadge = document.getElementById('cart-count-top');
+    if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.remove('hidden'); }
+};
+
+window.checkoutToQueue = () => {
+    if(!cart.length) return;
+    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    if (summaryEnabled) {
+        const list = cart.map(i => `${i.name} x${i.qty}`).join('\n');
+        if (!confirm(`${list}\n\nTotal: $${total.toFixed(2)}\n\nProceed?`)) return;
+    }
+    orderCounter++;
+    queue.unshift({ orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() });
+    cart = []; render(); pushData();
+};
+
+window.toggleManageSection = sec => {
+    document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
+    document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
+    document.getElementById('sub-btn-orders').className = sec === 'orders' ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
+    document.getElementById('sub-btn-stock').className = sec === 'stock' ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
+};
+
+function renderHistoryAndPending() {
     document.getElementById('pending-list').innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
-        <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
+        <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100 mb-3">
             <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
                 <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
                 <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
@@ -107,68 +168,21 @@ function render() {
             </div>
         </div>
     `).join('');
-
-    document.getElementById('inventory-list').innerHTML = products.map(p => `
-        <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
-            <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
-                <img src="${p.img || ''}" class="w-full h-full object-cover">
-                <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
-            </div>
-            <div class="flex-1">
-                <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none uppercase">
-                <input type="text" placeholder="Category" value="${p.category || ''}" onchange="editItem(${p.id}, 'category', this.value)" class="text-[9px] font-black text-slate-400 bg-transparent outline-none uppercase block">
-                <div class="flex items-center gap-2 mt-1">
-                    <span class="text-blue-600 font-black text-xs">$</span>
-                    <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-16 font-black text-xs outline-none">
-                </div>
-            </div>
-            <div class="flex flex-col gap-2">
-                <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-                <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
-            </div>
-        </div>
-    `).join('');
-
-    const totalQty = cart.reduce((s, i) => s + i.qty, 0);
-    const topBadge = document.getElementById('cart-count-top');
-    if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
-    lucide.createIcons();
 }
-
-window.handleProductTap = id => {
-    const el = document.getElementById(`prod-${id}`);
-    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
-    const p = products.find(x => x.id === id);
-    const entry = cart.find(i => i.id === id);
-    if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    render();
-};
-
-window.checkoutToQueue = () => {
-    if(!cart.length) return;
-    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    if (summaryEnabled) {
-        const list = cart.map(i => `${i.name} x${i.qty}`).join('\n');
-        if (!confirm(`${list}\n\nTotal: $${total.toFixed(2)}\n\nProceed?`)) return;
-    }
-    orderCounter++;
-    queue.unshift({ orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() });
-    cart = []; render(); pushData();
-};
 
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    lucide.createIcons();
 };
 
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = val; else history[idx].desc = val; pushData(); };
 window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
-window.toggleManageSection = sec => { document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders'); document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock'); };
 window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(idx, 1); else history.splice(idx, 1); pushData(); };
 window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); p[f] = (f==='price'?parseFloat(v):v); pushData(); };
