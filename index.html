@@ -13,62 +13,70 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; overflow: hidden; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
         .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
-        .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.8rem; transition: transform 0.3s; }
+        .active-tab { color: #2563eb; background: #eff6ff; border-radius: 24px; }
         
+        /* The Original Item Animation */
+        .item-card { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; }
+        .item-card:active { transform: scale(0.92); }
+        
+        /* Precise Notification Alignment */
+        .nav-notif { position: absolute; top: 18px; right: 32px; width: 10px; height: 10px; background: #ef4444; border-radius: 50%; border: 2px solid white; }
+        .cart-badge { position: absolute; top: -4px; right: -8px; background: #ef4444; color: white; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 99px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
+
         main { padding-bottom: 420px; }
         @media (min-width: 1024px) {
             main { padding-bottom: 120px; padding-left: 10%; padding-right: 10%; }
             #view-cashier { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.5rem; }
         }
 
-        #summary-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 20px; }
+        #summary-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #summary-overlay.active { display: flex; }
         
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .tag-active { background: #2563eb; color: white; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3); }
-        .badge { position: absolute; top: -2px; right: -8px; background: #ef4444; color: white; font-size: 9px; font-weight: 900; padding: 2px 7px; border-radius: 99px; border: 2px solid white; }
+        
+        /* Cyber-Slate Image Placeholder */
+        .img-empty { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); display: flex; align-items: center; justify-content: center; color: #cbd5e1; }
     </style>
 </head>
 <body class="h-screen flex flex-col">
 
     <div id="summary-overlay">
-        <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl overflow-hidden">
+        <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl">
             <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <i data-lucide="check-circle" class="w-10 h-10"></i>
             </div>
-            <h2 class="font-black text-2xl mb-1">Order Sent</h2>
-            <p id="sum-id" class="text-slate-400 font-bold text-xs mb-6 tracking-widest uppercase">#000</p>
+            <h2 class="font-black text-2xl mb-1 text-slate-900">Order Sent</h2>
+            <p id="sum-id" class="text-slate-400 font-bold text-xs mb-8 uppercase tracking-widest">#000</p>
             
-            <div id="sum-details" class="bg-slate-50 rounded-[2rem] p-6 mb-8 max-h-48 overflow-y-auto border border-slate-100 text-left space-y-3"></div>
+            <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 border border-slate-100 text-left space-y-3 max-h-48 overflow-y-auto no-scrollbar"></div>
             
-            <div class="flex justify-between items-center mb-8 px-4">
-                <span class="font-bold text-slate-400 text-xs uppercase tracking-widest">Total</span>
+            <div class="flex justify-between items-center mb-10 px-4">
+                <span class="font-bold text-slate-400 text-[10px] uppercase tracking-[0.2em]">Total Amount</span>
                 <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
             </div>
-            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-xs tracking-widest active:scale-95 transition-all">New Sale</button>
+            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-xs tracking-[0.3em] shadow-xl active:scale-95 transition-all">Continue</button>
         </div>
     </div>
 
     <nav class="glass border-b border-slate-200 px-8 py-5 flex justify-between items-center z-50">
         <div class="flex items-center gap-4">
-            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200"></div>
+            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200 transition-colors duration-500"></div>
             <h1 class="font-extrabold text-2xl tracking-tighter cursor-pointer" onclick="triggerReset()">TapMS</h1>
         </div>
         
         <div class="flex-1 max-w-md mx-8">
             <div class="relative">
                 <i data-lucide="search" class="absolute left-4 top-3.5 w-5 h-5 text-slate-400"></i>
-                <input type="text" id="search-input" oninput="doSearch(this.value)" placeholder="Search products..." class="w-full bg-slate-100 border-none rounded-2xl py-3 pl-12 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
+                <input type="text" id="search-input" oninput="doSearch(this.value)" placeholder="Search anything..." class="w-full bg-slate-100 border-none rounded-2xl py-3.5 pl-12 text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none transition-all">
             </div>
         </div>
 
         <button onclick="checkoutToQueue()" class="relative bg-blue-600 p-3.5 rounded-2xl shadow-lg active:scale-90 transition-all">
             <i data-lucide="send" class="w-6 h-6 text-white"></i>
-            <span id="cart-count" class="hidden badge">0</span>
+            <span id="cart-count" class="hidden cart-badge">0</span>
         </button>
     </nav>
 
@@ -78,43 +86,43 @@
         <div id="view-cashier" class="grid grid-cols-2 gap-6"></div>
         
         <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-8 pt-4">
-            <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto mb-6">
-                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="relative px-10 py-3 rounded-xl text-xs font-black uppercase bg-white text-blue-600 shadow-md">
-                    Orders <span id="order-notif" class="hidden w-2 h-2 bg-red-500 rounded-full absolute top-2 right-4"></span>
+            <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto mb-10">
+                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="relative px-12 py-3.5 rounded-xl text-xs font-black uppercase bg-white text-blue-600 shadow-md">
+                    Orders <span id="order-notif" class="hidden w-2 h-2 bg-red-500 rounded-full absolute top-2 right-6"></span>
                 </button>
-                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-10 py-3 rounded-xl text-xs font-black uppercase text-slate-500">Stock</button>
+                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-12 py-3.5 rounded-xl text-xs font-black uppercase text-slate-500">Stock</button>
             </div>
 
             <div id="sec-orders" class="space-y-6">
                 <div id="pending-list" class="space-y-4"></div>
-                <div id="history-list" class="pt-10 border-t border-slate-200 space-y-4"></div>
+                <div id="history-list" class="pt-12 border-t border-slate-200 space-y-4"></div>
             </div>
 
             <div id="sec-stock" class="hidden space-y-8">
                 <div class="flex justify-between items-center px-4">
                     <div>
                         <h2 class="font-black text-3xl tracking-tight text-slate-900">Inventory</h2>
-                        <button onclick="toggleSummarySetting()" id="summary-toggle-ui" class="mt-3 flex items-center gap-3 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm">
+                        <button onclick="toggleSummarySetting()" id="summary-toggle-ui" class="mt-3 flex items-center gap-3 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm active:scale-95 transition-all">
                             <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                            <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider">Checkout Summary: OFF</span>
+                            <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Summary: OFF</span>
                         </button>
                     </div>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl">+ Add Item</button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95 transition-all">+ Add Item</button>
                 </div>
                 <div id="inventory-list" class="space-y-4"></div>
             </div>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 py-5 pb-10 flex justify-around z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 active-tab p-4 transition-all">
-            <i data-lucide="shopping-cart" class="w-8 h-8"></i>
+    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 py-6 pb-12 flex justify-around z-50">
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 active-tab p-5 transition-all">
+            <i data-lucide="layout-grid" class="w-8 h-8"></i>
             <span class="text-[10px] font-black uppercase tracking-widest">POS</span>
         </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 text-slate-400 p-4 transition-all">
-            <i data-lucide="sliders" class="w-8 h-8"></i>
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 text-slate-400 p-5 transition-all">
+            <i data-lucide="settings" class="w-8 h-8"></i>
             <span class="text-[10px] font-black uppercase tracking-widest">Manage</span>
-            <span id="manage-notif" class="hidden w-3 h-3 bg-red-500 rounded-full absolute top-4 right-8 border-2 border-white"></span>
+            <span id="manage-notif" class="hidden nav-notif"></span>
         </button>
     </nav>
 
