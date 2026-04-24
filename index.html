@@ -18,14 +18,13 @@
         .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.8rem; }
         
-        /* The "Safe Bottom" lift - Adjusted for clear PC view */
+        /* Spacious PC View + Mobile Lift */
         main { padding-bottom: 420px; }
         @media (min-width: 1024px) {
-            main { padding-bottom: 100px; padding-left: 10%; padding-right: 10%; }
-            #view-cashier { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2rem; }
+            main { padding-bottom: 120px; padding-left: 10%; padding-right: 10%; }
+            #view-cashier { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2.5rem; }
         }
 
-        /* Summary Overlay */
         #summary-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); align-items: center; justify-content: center; padding: 20px; }
         #summary-overlay.active { display: flex; }
         
@@ -44,7 +43,7 @@
             <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
                 <i data-lucide="check" class="w-10 h-10"></i>
             </div>
-            <h2 class="font-black text-2xl mb-1">Order Sent</h2>
+            <h2 class="font-black text-2xl mb-1 text-slate-900">Order Sent</h2>
             <p id="sum-id" class="text-slate-400 font-bold text-xs mb-8 tracking-[0.2em] uppercase">#000</p>
             <div class="bg-slate-50 rounded-[2.5rem] py-10 mb-10 border border-slate-100">
                 <p class="text-[10px] font-black uppercase text-slate-400 mb-2">Total Amount</p>
@@ -57,11 +56,10 @@
     <nav class="glass border-b border-slate-200 px-8 py-5 flex justify-between items-center z-50">
         <div class="flex items-center gap-4">
             <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200"></div>
-            <h1 class="font-extrabold text-2xl tracking-tighter select-none cursor-pointer hover:opacity-70 transition-all" 
-                onclick="triggerReset()">TapMS</h1>
+            <h1 class="font-extrabold text-2xl tracking-tighter select-none cursor-pointer hover:opacity-70 transition-all" onclick="triggerReset()">TapMS</h1>
         </div>
         <div class="flex items-center gap-3">
-             <button onclick="toggleSearch()" class="p-3 bg-slate-100 rounded-2xl hover:bg-slate-200 transition-colors"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
+             <button onclick="toggleSearch()" class="p-3 bg-slate-100 rounded-2xl hover:bg-slate-200"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
              <button onclick="checkoutToQueue()" class="bg-blue-600 p-3 rounded-2xl shadow-lg active:scale-90 transition-all">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
              </button>
@@ -75,27 +73,27 @@
         
         <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-8 pt-4">
             <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto mb-6">
-                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-10 py-3 rounded-xl text-xs font-black uppercase bg-white text-blue-600 shadow-md transition-all">Orders</button>
-                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-10 py-3 rounded-xl text-xs font-black uppercase text-slate-500 transition-all">Stock</button>
+                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-10 py-3 rounded-xl text-xs font-black uppercase bg-white text-blue-600 shadow-md">Orders</button>
+                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-10 py-3 rounded-xl text-xs font-black uppercase text-slate-500">Stock</button>
             </div>
 
             <div id="sec-orders" class="space-y-6">
-                <div id="pending-list" class="space-y-6"></div>
+                <div id="pending-list" class="space-y-4"></div>
                 <div id="history-list" class="pt-10 border-t border-slate-200 space-y-4"></div>
             </div>
 
             <div id="sec-stock" class="hidden space-y-8">
                 <div class="flex justify-between items-center px-4">
                     <div>
-                        <h2 class="font-black text-3xl tracking-tight">Inventory</h2>
+                        <h2 class="font-black text-3xl tracking-tight text-slate-900">Inventory</h2>
                         <button onclick="toggleSummarySetting()" id="summary-toggle-ui" class="mt-3 flex items-center gap-3 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm active:scale-95 transition-all">
                             <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                            <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider">Checkout Summary: OFF</span>
+                            <span class="text-[10px] font-black uppercase text-slate-500 tracking-wider uppercase">Summary: OFF</span>
                         </button>
                     </div>
                     <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl">+ Add Item</button>
                 </div>
-                <div id="inventory-list" class="space-y-3"></div>
+                <div id="inventory-list" class="space-y-4"></div>
             </div>
         </div>
     </main>
