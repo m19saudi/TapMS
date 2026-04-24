@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TapMS | Cloud POS</title>
-    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/9402/9402314.png">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
@@ -13,16 +12,30 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; overflow: hidden; -webkit-tap-highlight-color: transparent; }
-        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-        .active-tab { color: #2563eb !important; background: #eff6ff; border-radius: 24px; }
         
-        .item-card { transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); cursor: pointer; }
-        .item-card:active { transform: scale(0.92); }
-        
-        /* The Original Glowing Red Badge */
+        /* FIX: Top Bar disappearing fix */
+        body { 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            background: #f8fafc; 
+            height: 100vh; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        /* FIX: Responsive scroll area */
+        main { 
+            flex: 1; 
+            overflow-y: auto; 
+            -webkit-overflow-scrolling: touch; 
+            padding-bottom: 120px; 
+        }
+
+        nav.top-sticky { position: sticky; top: 0; z-index: 100; flex-shrink: 0; }
+
         .nav-notif { 
-            position: absolute; top: -2px; right: -4px; width: 12px; height: 12px; 
+            position: absolute; top: -2px; right: -4px; width: 14px; height: 14px; 
             background: #ef4444; border-radius: 50%; border: 2.5px solid white;
             box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
             animation: pulse-glow 2s infinite;
@@ -30,111 +43,78 @@
 
         @keyframes pulse-glow {
             0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            70% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
             100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
         }
 
-        .cart-badge { position: absolute; top: -4px; right: -8px; background: #ef4444; color: white; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 99px; border: 2.5px solid white; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
-
-        main { padding-bottom: 80px; }
-        @media (min-width: 1024px) { main { padding-bottom: 80px; padding-left: 10%; padding-right: 10%; } }
-/* RESTORED: Premium Original Bottom Nav with fixed height */
-nav.fixed.bottom-0 {
-    height: 80px; /* Forces the same height as top nav */
-    padding-top: 12px;
-    padding-bottom: env(safe-area-inset-bottom, 12px); /* Protects from phone home bar */
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-}
-        #summary-overlay { display: none; position: fixed; inset: 0; z-index: 100; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
-        #summary-overlay.active { display: flex; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
+        .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+        .active-tab { color: #2563eb !important; background: #eff6ff; border-radius: 24px; }
     </style>
 </head>
-<body class="h-screen flex flex-col">
+<body>
 
-    <div id="summary-overlay">
-        <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl">
-            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
-                <i data-lucide="check-circle" class="w-10 h-10"></i>
-            </div>
-            <h2 class="font-black text-2xl mb-1 text-slate-900 uppercase">Order Sent</h2>
-            <p id="sum-id" class="text-slate-400 font-bold text-[10px] mb-8 uppercase tracking-widest">#000</p>
-            <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 border border-slate-100 text-left space-y-3 max-h-48 overflow-y-auto no-scrollbar"></div>
-            <div class="flex justify-between items-center mb-10 px-4">
-                <span class="font-bold text-slate-400 text-[10px] uppercase tracking-[0.2em]">Total</span>
-                <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
-            </div>
-            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-xl active:scale-95 transition-all">Continue</button>
-        </div>
-    </div>
-
-    <nav class="glass border-b border-slate-200 px-8 py-5 flex justify-between items-center z-50">
+    <nav class="top-sticky glass border-b border-slate-200 px-8 py-5 flex justify-between items-center">
         <div class="flex items-center gap-4">
             <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200"></div>
-            <h1 class="font-extrabold text-2xl tracking-tighter cursor-pointer select-none" onclick="promptWipe()">TapMS</h1>
+            <h1 class="font-extrabold text-2xl tracking-tighter">TapMS</h1>
         </div>
         <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
-             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
+             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
+             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl shadow-md">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
-                <div id="cart-count-top" class="hidden cart-badge">0</div>
              </button>
         </div>
     </nav>
 
-    <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3">
-        <div class="relative flex items-center">
-            <i data-lucide="search" class="absolute left-4 w-4 h-4 text-slate-400"></i>
-            <input type="text" id="cashier-search" placeholder="Search products..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
-        </div>
-    </div>
-
-    <div id="cat-bar" class="glass border-b border-slate-200 px-6 py-4 flex gap-3 overflow-x-auto no-scrollbar shrink-0"></div>
-
-    <main class="flex-1 overflow-y-auto p-6">
+    <main id="main-content" class="p-6">
         <div id="view-cashier" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6"></div>
-        <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-8 pt-4">
-            <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto mb-10">
-                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-12 py-3.5 rounded-xl text-xs font-black uppercase bg-white text-blue-600 shadow-md">Orders</button>
-                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-12 py-3.5 rounded-xl text-xs font-black uppercase text-slate-500">Stock</button>
+
+        <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-8">
+            <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto">
+                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-10 py-3 rounded-xl text-[10px] font-black uppercase bg-white text-blue-600 shadow-sm">Orders</button>
+                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-10 py-3 rounded-xl text-[10px] font-black uppercase text-slate-500">Stock</button>
             </div>
 
             <div id="sec-orders" class="space-y-6">
                 <div id="pending-list" class="space-y-4"></div>
-                <div id="history-list" class="pt-12 border-t border-slate-200 space-y-4"></div>
+                <div id="history-list" class="pt-8 border-t border-slate-200 space-y-4"></div>
             </div>
 
-            <div id="sec-stock" class="hidden space-y-8">
-                <div class="flex justify-between items-center px-4">
-                    <div>
-                        <h2 class="font-black text-3xl tracking-tight text-slate-900 uppercase">Inventory</h2>
-                        <button onclick="toggleSummary()" id="summary-toggle-ui" class="mt-3 flex items-center gap-3 bg-white px-5 py-2.5 rounded-full border border-slate-200 shadow-sm active:scale-95 transition-all">
-                            <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                            <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Summary: OFF</span>
-                        </button>
-                    </div>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-8 py-3.5 rounded-2xl text-[11px] font-black uppercase tracking-[0.2em] shadow-xl">+ Add Item</button>
+            <div id="sec-stock" class="hidden space-y-6">
+                <div class="grid grid-cols-2 gap-3 px-2">
+                    <button onclick="exportDatabase()" class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-3 rounded-2xl text-[9px] font-black uppercase text-slate-600 shadow-sm">
+                        <i data-lucide="download" class="w-4 h-4"></i> Export JSON
+                    </button>
+                    <label class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-3 rounded-2xl text-[9px] font-black uppercase text-slate-600 shadow-sm cursor-pointer">
+                        <i data-lucide="upload" class="w-4 h-4"></i> Import JSON
+                        <input type="file" id="importFile" class="hidden" accept=".json" onchange="importDatabase(event)">
+                    </label>
                 </div>
-                <div id="inventory-list" class="space-y-4"></div>
+
+                <div class="flex items-center justify-between gap-3 px-2">
+                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-3.5 rounded-2xl border border-slate-200 shadow-sm flex-1">
+                        <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
+                        <span class="text-[9px] font-black uppercase text-slate-500">Summary: OFF</span>
+                    </button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg flex-1">+ Add Item</button>
+                </div>
+                
+                <div id="inventory-list" class="space-y-3"></div>
             </div>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 py-6 pb-10 flex justify-around z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 active-tab p-4 transition-all">
+    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 h-[85px] flex justify-around items-center z-50 pb-[env(safe-area-inset-bottom,0px)]">
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-1 active-tab p-3">
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase tracking-widest">Cashier</span>
+            <span class="text-[10px] font-black uppercase">Cashier</span>
         </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 text-slate-400 p-4 transition-all">
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-1 text-slate-400 p-3">
             <div class="relative">
                 <i data-lucide="clipboard-list" class="w-7 h-7"></i>
                 <div id="nav-badge" class="hidden nav-notif"></div>
             </div>
-            <span class="text-[10px] font-black uppercase tracking-widest">Manage</span>
+            <span class="text-[10px] font-black uppercase">Manage</span>
         </button>
     </nav>
 
