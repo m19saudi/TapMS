@@ -41,10 +41,11 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Master Category List
+    // Get master category list
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
-    const cats = ["All", ...uniqueCats];
     
+    // Category Bar for Cashier
+    const cats = ["All", ...uniqueCats];
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = cats.map(c => `
@@ -57,21 +58,30 @@ function render() {
         (currentCat === "All" || (p.cat || "") === currentCat)
     ).sort((a,b) => b.fav - a.fav);
 
+    // Cashier View with Quantity Badges
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
-        cashierView.innerHTML = filtered.map(p => `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
+        cashierView.innerHTML = filtered.map(p => {
+            // Find if this item is in the cart to show quantity
+            const cartItem = cart.find(c => c.id === p.id);
+            const qty = cartItem ? cartItem.qty : 0;
+
+            return `
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative" onclick="handleProductTap(${p.id})">
+                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10 animate-in zoom-in duration-200">${qty}</div>` : ''}
+                
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
-                    ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
+                    ${p.fav ? '<div class="absolute top-2 left-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
                 </div>
                 <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
                 <p class="text-blue-600 font-black text-center text-[10px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
             </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
-    // NEW CREATIVE INVENTORY UI
+    // Creative Stock/Inventory View
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map(p => `
@@ -128,18 +138,8 @@ window.handleProductTap = id => {
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    setTimeout(() => render(), 100); 
-};
-
-window.cycleCategory = (productId) => {
-    const p = products.find(x => x.id === productId);
-    if (!p) return;
-    const allCats = [...new Set(products.map(x => x.cat || "").filter(Boolean))];
-    allCats.push(""); 
-    let currentIndex = allCats.indexOf(p.cat || "");
-    let nextIndex = (currentIndex + 1) % allCats.length;
-    p.cat = allCats[nextIndex];
-    pushData();
+    // Fast render to update badge
+    render(); 
 };
 
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
