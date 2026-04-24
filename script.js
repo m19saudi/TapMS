@@ -41,12 +41,10 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Persistent Category Bar Logic
+    // Master Category List
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
-    const dl = document.getElementById('category-list');
-    if(dl) dl.innerHTML = uniqueCats.map(c => `<option value="${c}">`).join('');
-
     const cats = ["All", ...uniqueCats];
+    
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = cats.map(c => `
@@ -59,7 +57,6 @@ function render() {
         (currentCat === "All" || (p.cat || "") === currentCat)
     ).sort((a,b) => b.fav - a.fav);
 
-    // Cashier View
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => `
@@ -74,36 +71,44 @@ function render() {
         `).join('');
     }
 
-    // Stock/Inventory View (Cleaner UI)
+    // NEW CREATIVE INVENTORY UI
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map(p => `
-            <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-3">
-                <div class="relative w-12 h-12 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
-                    <img src="${p.img || ''}" class="w-full h-full object-cover">
-                    <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
-                </div>
-                
-                <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                        <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="flex-1 font-bold text-sm bg-transparent outline-none truncate">
-                        <div class="flex items-center bg-slate-50 px-2 py-1 rounded-lg">
-                            <span class="text-blue-600 font-black text-[10px] mr-0.5">$</span>
-                            <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-12 font-black text-xs bg-transparent outline-none text-blue-600">
-                        </div>
+            <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4">
+                <div class="flex items-center gap-4">
+                    <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
+                        <img src="${p.img || ''}" class="w-full h-full object-cover">
+                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
                     </div>
                     
-                    <div class="flex items-center gap-2 mt-2">
-                        <button onclick="cycleCategory(${p.id})" class="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-slate-100 transition-colors ${p.cat ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400'}">
-                            ${p.cat || 'None'}
-                        </button>
-                        <input type="text" value="${p.cat || ''}" placeholder="New Cat..." onchange="editItem(${p.id}, 'cat', this.value)" class="text-[9px] font-bold bg-transparent outline-none w-16 text-slate-300">
+                    <div class="flex-1 min-w-0">
+                        <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block">
+                        <div class="flex items-center mt-1">
+                            <span class="text-blue-600 font-black text-[11px] mr-1">$</span>
+                            <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-24 font-black text-sm bg-transparent outline-none text-blue-600">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
+                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
 
                 <div class="flex flex-col gap-2">
-                    <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-                    <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 border border-slate-50'}">None</button>
+                        ${uniqueCats.map(c => `
+                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">
+                                ${c}
+                            </button>
+                        `).join('')}
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="plus-circle" class="w-3 h-3 text-slate-300"></i>
+                        <input type="text" placeholder="New Category..." onchange="editItem(${p.id}, 'cat', this.value)" class="text-[9px] font-bold bg-transparent outline-none w-full text-slate-400 italic">
+                    </div>
                 </div>
             </div>
         `).join('');
