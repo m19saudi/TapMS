@@ -41,11 +41,9 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Get master category list
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
-    
-    // Category Bar for Cashier
     const cats = ["All", ...uniqueCats];
+    
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = cats.map(c => `
@@ -58,18 +56,14 @@ function render() {
         (currentCat === "All" || (p.cat || "") === currentCat)
     ).sort((a,b) => b.fav - a.fav);
 
-    // Cashier View with Quantity Badges
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => {
-            // Find if this item is in the cart to show quantity
             const cartItem = cart.find(c => c.id === p.id);
             const qty = cartItem ? cartItem.qty : 0;
-
             return `
             <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative" onclick="handleProductTap(${p.id})">
                 ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10 animate-in zoom-in duration-200">${qty}</div>` : ''}
-                
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 left-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
@@ -81,7 +75,6 @@ function render() {
         }).join('');
     }
 
-    // Creative Stock/Inventory View
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map(p => `
@@ -91,7 +84,6 @@ function render() {
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
                         <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
                     </div>
-                    
                     <div class="flex-1 min-w-0">
                         <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block">
                         <div class="flex items-center mt-1">
@@ -99,20 +91,16 @@ function render() {
                             <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-24 font-black text-sm bg-transparent outline-none text-blue-600">
                         </div>
                     </div>
-
                     <div class="flex items-center gap-2">
                         <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
                         <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
-
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
                         <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 border border-slate-50'}">None</button>
                         ${uniqueCats.map(c => `
-                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">
-                                ${c}
-                            </button>
+                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
                         `).join('')}
                     </div>
                     <div class="flex items-center gap-2">
@@ -127,19 +115,19 @@ function render() {
     lucide.createIcons();
 }
 
-// --- PRODUCT ACTIONS ---
+// --- PRODUCT ACTIONS (RESTORING ANIMATION) ---
 window.handleProductTap = id => {
     const el = document.getElementById(`prod-${id}`);
     if(el) { 
         el.classList.remove('tap-feedback');
-        void el.offsetWidth; 
+        void el.offsetWidth; // Force reflow to restart animation
         el.classList.add('tap-feedback');
     }
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    // Fast render to update badge
-    render(); 
+    // Timeout matches animation duration for smooth update
+    setTimeout(() => render(), 150); 
 };
 
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
