@@ -3,13 +3,7 @@ let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
-window.confirmWipe = () => {
-    if (confirm("Wipe all data and reset system?")) {
-        db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 });
-        location.reload();
-    }
-};
-
+// --- INITIALIZATION ---
 async function initTapMS() {
     try {
         const response = await fetch('/api/config');
@@ -42,11 +36,12 @@ function startSync() {
 
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
 
+// --- CORE RENDERING ---
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // PERSISTENT CATEGORY BAR: Always use the master list (products), not the filtered list
+    // Persistent Category Bar Logic
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
     const dl = document.getElementById('category-list');
     if(dl) dl.innerHTML = uniqueCats.map(c => `<option value="${c}">`).join('');
@@ -64,6 +59,7 @@ function render() {
         (currentCat === "All" || (p.cat || "") === currentCat)
     ).sort((a,b) => b.fav - a.fav);
 
+    // Cashier View
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => `
@@ -78,22 +74,33 @@ function render() {
         `).join('');
     }
 
+    // Stock/Inventory View (Cleaner UI)
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map(p => `
-            <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-4">
-                <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
+            <div class="bg-white p-4 rounded-3xl border border-slate-100 flex items-center gap-3">
+                <div class="relative w-12 h-12 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                     <img src="${p.img || ''}" class="w-full h-full object-cover">
                     <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
                 </div>
-                <div class="flex-1">
-                    <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-bold text-sm bg-transparent outline-none">
-                    <div class="flex items-center gap-2 mt-1">
-                        <input type="text" list="category-list" value="${p.cat || ''}" onchange="editItem(${p.id}, 'cat', this.value)" placeholder="None" class="text-[9px] font-black uppercase text-slate-400 bg-slate-50 px-2 py-0.5 rounded-md outline-none">
-                        <span class="text-blue-600 font-black text-xs">$</span>
-                        <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-16 font-black text-xs outline-none">
+                
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                        <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="flex-1 font-bold text-sm bg-transparent outline-none truncate">
+                        <div class="flex items-center bg-slate-50 px-2 py-1 rounded-lg">
+                            <span class="text-blue-600 font-black text-[10px] mr-0.5">$</span>
+                            <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-12 font-black text-xs bg-transparent outline-none text-blue-600">
+                        </div>
+                    </div>
+                    
+                    <div class="flex items-center gap-2 mt-2">
+                        <button onclick="cycleCategory(${p.id})" class="text-[9px] font-black uppercase px-3 py-1.5 rounded-xl border border-slate-100 transition-colors ${p.cat ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400'}">
+                            ${p.cat || 'None'}
+                        </button>
+                        <input type="text" value="${p.cat || ''}" placeholder="New Cat..." onchange="editItem(${p.id}, 'cat', this.value)" class="text-[9px] font-bold bg-transparent outline-none w-16 text-slate-300">
                     </div>
                 </div>
+
                 <div class="flex flex-col gap-2">
                     <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
                     <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
@@ -105,20 +112,107 @@ function render() {
     lucide.createIcons();
 }
 
-// FIXED MOBILE TAP ANIMATION
+// --- PRODUCT ACTIONS ---
 window.handleProductTap = id => {
     const el = document.getElementById(`prod-${id}`);
     if(el) { 
         el.classList.remove('tap-feedback');
-        void el.offsetWidth; // Trigger reflow to restart animation
+        void el.offsetWidth; 
         el.classList.add('tap-feedback');
     }
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    // Tiny delay before render to let the animation start visible
     setTimeout(() => render(), 100); 
 };
+
+window.cycleCategory = (productId) => {
+    const p = products.find(x => x.id === productId);
+    if (!p) return;
+    const allCats = [...new Set(products.map(x => x.cat || "").filter(Boolean))];
+    allCats.push(""); 
+    let currentIndex = allCats.indexOf(p.cat || "");
+    let nextIndex = (currentIndex + 1) % allCats.length;
+    p.cat = allCats[nextIndex];
+    pushData();
+};
+
+window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
+window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
+window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
+window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
+window.setCategory = (cat) => { currentCat = cat; render(); };
+window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
+
+// --- CART & ORDER LOGIC ---
+window.checkoutToQueue = () => {
+    if(!cart.length) return;
+    orderCounter++;
+    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    const order = { orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() };
+    queue.unshift(order);
+    if(summaryEnabled) openSummary(order);
+    cart = []; render(); pushData();
+};
+
+window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
+window.reorder = idx => { const item = history[idx]; orderCounter++; queue.unshift({ ...item, orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
+window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = val; else history[idx].desc = val; pushData(); };
+window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(idx, 1); else history.splice(idx, 1); pushData(); };
+window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
+window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
+
+// --- UI UTILS ---
+window.showView = v => {
+    document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
+    document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
+    document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
+};
+
+window.toggleManageSection = sec => {
+    document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
+    document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
+    const bO = document.getElementById('sub-btn-orders'), bS = document.getElementById('sub-btn-stock');
+    bO.className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
+    bS.className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
+};
+
+window.toggleSummary = () => {
+    summaryEnabled = !summaryEnabled;
+    const dot = document.getElementById('toggle-dot');
+    const label = document.getElementById('summary-toggle-ui').querySelector('span');
+    dot.className = summaryEnabled ? "w-2.5 h-2.5 rounded-full bg-blue-600" : "w-2.5 h-2.5 rounded-full bg-slate-300";
+    label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF";
+    label.className = summaryEnabled ? "text-[10px] font-black uppercase text-blue-600" : "text-[10px] font-black uppercase text-slate-500";
+};
+
+function openSummary(ord) {
+    document.getElementById('sum-id').innerText = `#${ord.orderNum}`;
+    document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`;
+    document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold uppercase"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join('');
+    document.getElementById('summary-overlay').classList.add('active');
+}
+window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
+window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
+
+// --- DATA TOOLS ---
+window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
+window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
+window.executeExport = () => {
+    const blob = new Blob([JSON.stringify(products, null, 2)], { type: "application/json" });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `TapMS_Backup.json`; a.click();
+    closeBackupModal();
+};
+window.triggerImport = () => document.getElementById('db-import-input').click();
+window.importDatabase = (e) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => { try { products = JSON.parse(ev.target.result); pushData(); alert("Restore Complete!"); closeBackupModal(); } catch { alert("Invalid File!"); } };
+    reader.readAsText(e.target.files[0]);
+};
+
+window.confirmWipe = () => { if (confirm("Wipe all data?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }); location.reload(); } };
 
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
@@ -170,77 +264,5 @@ function renderPendingAndHistory() {
     const topBadge = document.getElementById('cart-count-top');
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
 }
-
-window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
-window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
-window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
-window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
-window.setCategory = (cat) => { currentCat = cat; render(); };
-window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
-
-window.checkoutToQueue = () => {
-    if(!cart.length) return;
-    orderCounter++;
-    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    const order = { orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() };
-    queue.unshift(order);
-    if(summaryEnabled) openSummary(order);
-    cart = []; render(); pushData();
-};
-
-window.showView = v => {
-    document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
-    document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
-    document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
-};
-
-window.toggleManageSection = sec => {
-    document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
-    document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
-    const bO = document.getElementById('sub-btn-orders'), bS = document.getElementById('sub-btn-stock');
-    bO.className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
-    bS.className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
-};
-
-window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
-window.reorder = idx => { const item = history[idx]; orderCounter++; queue.unshift({ ...item, orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
-window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = val; else history[idx].desc = val; pushData(); };
-window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(idx, 1); else history.splice(idx, 1); pushData(); };
-window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
-window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
-
-window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
-window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
-window.executeExport = () => {
-    const blob = new Blob([JSON.stringify(products, null, 2)], { type: "application/json" });
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `TapMS_Backup.json`; a.click();
-    closeBackupModal();
-};
-window.triggerImport = () => document.getElementById('db-import-input').click();
-window.importDatabase = (e) => {
-    const reader = new FileReader();
-    reader.onload = (ev) => { try { products = JSON.parse(ev.target.result); pushData(); alert("Restore Complete!"); closeBackupModal(); } catch { alert("Invalid File!"); } };
-    reader.readAsText(e.target.files[0]);
-};
-
-window.toggleSummary = () => {
-    summaryEnabled = !summaryEnabled;
-    const dot = document.getElementById('toggle-dot');
-    const label = document.getElementById('summary-toggle-ui').querySelector('span');
-    dot.className = summaryEnabled ? "w-2.5 h-2.5 rounded-full bg-blue-600" : "w-2.5 h-2.5 rounded-full bg-slate-300";
-    label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF";
-    label.className = summaryEnabled ? "text-[10px] font-black uppercase text-blue-600" : "text-[10px] font-black uppercase text-slate-500";
-};
-
-function openSummary(ord) {
-    document.getElementById('sum-id').innerText = `#${ord.orderNum}`;
-    document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`;
-    document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold uppercase"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join('');
-    document.getElementById('summary-overlay').classList.add('active');
-}
-window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
-window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 
 initTapMS();
