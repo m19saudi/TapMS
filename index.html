@@ -13,49 +13,21 @@
     
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: #f8fafc; height: 100vh; display: flex; flex-direction: column; overflow: hidden; margin: 0; -webkit-tap-highlight-color: transparent; }
         
-        /* FIX: Prevents top bar from disappearing/scrolling away */
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background: #f8fafc; 
-            height: 100vh; 
-            display: flex; 
-            flex-direction: column; 
-            overflow: hidden; 
-            margin: 0;
-            -webkit-tap-highlight-color: transparent; 
-        }
-
-        /* FIX: Independent scroll area for products */
-        main { 
-            flex: 1; 
-            overflow-y: auto; 
-            -webkit-overflow-scrolling: touch; 
-            padding-bottom: 120px; 
-        }
-
-        nav.top-bar { flex-shrink: 0; z-index: 100; }
-
+        /* FIX: Top Bar remains fixed, and bottom products are never blocked */
+        main { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 180px; } 
+        
+        .top-nav { flex-shrink: 0; z-index: 100; position: sticky; top: 0; }
         .glass { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
         .active-tab { color: #2563eb !important; background: #eff6ff; border-radius: 24px; }
         
-        .nav-notif { 
-            position: absolute; top: -2px; right: -4px; width: 14px; height: 14px; 
-            background: #ef4444; border-radius: 50%; border: 2.5px solid white;
-            box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
-            animation: pulse-glow 2s infinite;
-        }
-
-        @keyframes pulse-glow {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.2); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
+        .nav-notif { position: absolute; top: -2px; right: -4px; width: 14px; height: 14px; background: #ef4444; border-radius: 50%; border: 2.5px solid white; box-shadow: 0 0 10px rgba(239, 68, 68, 0.5); animation: pulse-glow 2s infinite; }
+        @keyframes pulse-glow { 0% { transform: scale(1); } 70% { transform: scale(1.2); } 100% { transform: scale(1); } }
 
         #summary-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #summary-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
 <body>
@@ -72,32 +44,28 @@
                 <span class="font-bold text-slate-400 text-[10px] uppercase tracking-[0.2em]">Total</span>
                 <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
             </div>
-            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] active:scale-95 transition-all">Continue</button>
+            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px] tracking-[0.3em] shadow-xl">Continue</button>
         </div>
     </div>
 
-    <nav class="top-bar glass border-b border-slate-200 px-8 py-5 flex justify-between items-center">
+    <nav class="top-nav glass border-b border-slate-200 px-8 py-5 flex justify-between items-center">
         <div class="flex items-center gap-4">
-            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200"></div>
-            <h1 class="font-extrabold text-2xl tracking-tighter" onclick="promptWipe()">TapMS</h1>
+            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200 transition-all duration-500"></div>
+            <h1 class="font-extrabold text-2xl tracking-tighter cursor-pointer select-none" onclick="promptWipe()">TapMS</h1>
         </div>
         <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
-             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
+             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
+             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl shadow-md">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
                 <div id="cart-count-top" class="hidden absolute -top-2 -right-2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white">0</div>
              </button>
         </div>
     </nav>
 
-    <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3">
-        <input type="text" id="cashier-search" placeholder="Search products..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 px-6 py-3 rounded-2xl font-bold text-sm outline-none">
-    </div>
-
     <div id="cat-bar" class="glass border-b border-slate-200 px-6 py-4 flex gap-3 overflow-x-auto no-scrollbar shrink-0"></div>
 
     <main class="p-6">
-        <div id="view-cashier" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6"></div>
+        <div id="view-cashier" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-6 pb-20"></div>
 
         <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-8">
             <div class="flex bg-slate-200/50 p-1.5 rounded-2xl w-fit mx-auto">
@@ -111,38 +79,32 @@
             </div>
 
             <div id="sec-stock" class="hidden space-y-6">
-                <div class="grid grid-cols-2 gap-3 px-2">
-                    <button onclick="exportDatabase()" class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-3 rounded-2xl text-[9px] font-black uppercase text-slate-600 shadow-sm">
-                        <i data-lucide="download" class="w-4 h-4"></i> Export JSON
+                <div class="px-2">
+                    <button onclick="showDataOptions()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm">
+                        <i data-lucide="database" class="w-4 h-4"></i> Manage Database (Import/Export)
                     </button>
-                    <label class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-3 rounded-2xl text-[9px] font-black uppercase text-slate-600 shadow-sm cursor-pointer">
-                        <i data-lucide="upload" class="w-4 h-4"></i> Import JSON
-                        <input type="file" class="hidden" accept=".json" onchange="importDatabase(event)">
-                    </label>
+                    <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
                 </div>
 
                 <div class="flex items-center justify-between gap-3 px-2">
                     <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-3.5 rounded-2xl border border-slate-200 shadow-sm flex-1">
                         <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                        <span class="text-[9px] font-black uppercase text-slate-500">Summary: OFF</span>
+                        <span class="text-[10px] font-black uppercase text-slate-500 tracking-widest">Summary: OFF</span>
                     </button>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-3.5 rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-lg flex-1">+ Add Item</button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg flex-1">+ Add Item</button>
                 </div>
-                <div id="inventory-list" class="space-y-3"></div>
+                <div id="inventory-list" class="space-y-4 pb-20"></div>
             </div>
         </div>
     </main>
 
-    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 h-[85px] flex justify-around items-center z-100 pb-[env(safe-area-inset-bottom,0px)]">
+    <nav class="fixed bottom-0 left-0 right-0 glass border-t border-slate-200 px-10 h-[90px] flex justify-around items-center z-50 pb-[env(safe-area-inset-bottom,0px)]">
         <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-1 active-tab p-3">
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
             <span class="text-[10px] font-black uppercase tracking-widest">Cashier</span>
         </button>
         <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-1 text-slate-400 p-3">
-            <div class="relative">
-                <i data-lucide="clipboard-list" class="w-7 h-7"></i>
-                <div id="nav-badge" class="hidden nav-notif"></div>
-            </div>
+            <div class="relative"><i data-lucide="clipboard-list" class="w-7 h-7"></i><div id="nav-badge" class="hidden nav-notif"></div></div>
             <span class="text-[10px] font-black uppercase tracking-widest">Manage</span>
         </button>
     </nav>
