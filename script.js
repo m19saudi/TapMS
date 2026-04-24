@@ -46,7 +46,7 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Persistent Category List: Always pulled from the full products list
+    // PERSISTENT CATEGORY BAR: Always use the master list (products), not the filtered list
     const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
     const dl = document.getElementById('category-list');
     if(dl) dl.innerHTML = uniqueCats.map(c => `<option value="${c}">`).join('');
@@ -67,7 +67,7 @@ function render() {
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm transition-all" onclick="handleProductTap(${p.id})">
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm" onclick="handleProductTap(${p.id})">
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 right-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
@@ -101,15 +101,29 @@ function render() {
             </div>
         `).join('');
     }
-
     renderPendingAndHistory();
     lucide.createIcons();
 }
 
+// FIXED MOBILE TAP ANIMATION
+window.handleProductTap = id => {
+    const el = document.getElementById(`prod-${id}`);
+    if(el) { 
+        el.classList.remove('tap-feedback');
+        void el.offsetWidth; // Trigger reflow to restart animation
+        el.classList.add('tap-feedback');
+    }
+    const p = products.find(x => x.id === id);
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty: 1});
+    // Tiny delay before render to let the animation start visible
+    setTimeout(() => render(), 100); 
+};
+
 function renderPendingAndHistory() {
-    const pendingList = document.getElementById('pending-list');
-    if(pendingList) {
-        pendingList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
+    const pList = document.getElementById('pending-list');
+    if(pList) {
+        pList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
             <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
                 <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
                     <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
@@ -125,10 +139,9 @@ function renderPendingAndHistory() {
             </div>
         `).join('');
     }
-
-    const historyList = document.getElementById('history-list');
-    if(historyList) {
-        historyList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
+    const hList = document.getElementById('history-list');
+    if(hList) {
+        hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
             <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 shadow-sm" onclick="toggleOrderExpand(${idx})">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
@@ -157,15 +170,6 @@ function renderPendingAndHistory() {
     const topBadge = document.getElementById('cart-count-top');
     if(topBadge) { topBadge.innerText = totalQty; topBadge.classList.toggle('hidden', totalQty === 0); }
 }
-
-window.handleProductTap = id => {
-    const el = document.getElementById(`prod-${id}`);
-    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
-    const p = products.find(x => x.id === id);
-    const entry = cart.find(i => i.id === id);
-    if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    render();
-};
 
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
