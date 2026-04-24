@@ -62,7 +62,7 @@ function render() {
             const cartItem = cart.find(c => c.id === p.id);
             const qty = cartItem ? cartItem.qty : 0;
             return `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative" onclick="handleProductTap(${p.id})">
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none" onclick="handleProductTap(event, ${p.id})">
                 ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10 animate-in zoom-in duration-200">${qty}</div>` : ''}
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
@@ -115,18 +115,22 @@ function render() {
     lucide.createIcons();
 }
 
-// --- PRODUCT ACTIONS (RESTORING ANIMATION) ---
-window.handleProductTap = id => {
+// --- PRODUCT ACTIONS ---
+window.handleProductTap = (e, id) => {
+    // Stop the browser from selecting/dragging when clicking fast on PC
+    if (e) e.preventDefault(); 
+    
     const el = document.getElementById(`prod-${id}`);
     if(el) { 
         el.classList.remove('tap-feedback');
-        void el.offsetWidth; // Force reflow to restart animation
+        void el.offsetWidth; // Force reflow
         el.classList.add('tap-feedback');
     }
+    
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    // Timeout matches animation duration for smooth update
+    
     setTimeout(() => render(), 150); 
 };
 
