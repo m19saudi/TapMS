@@ -20,9 +20,9 @@
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         main { flex: 1; overflow-y: auto; padding-bottom: 280px !important; -webkit-overflow-scrolling: touch; }
         
-        /* Product Tap Animation */
+        /* THE RESTORED ANIMATION */
         .product-card { transition: transform 0.1s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .product-card:active { transform: scale(0.9); }
+        .product-card:active { transform: scale(0.92); filter: brightness(0.9); }
 
         #cat-bar { display: flex; overflow-x: auto; scroll-behavior: smooth; }
         .manager-content { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s ease; }
@@ -30,8 +30,10 @@
         .rotate-icon { transition: transform 0.3s ease; }
         .manager-expanded .rotate-icon { transform: rotate(180deg); }
 
-        .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease; overflow: hidden; }
-        .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
+        /* THE RESTORED HISTORY EXPANSION */
+        .order-detail { max-height: 0; opacity: 0; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden; }
+        .order-expanded .order-detail { max-height: 600px; opacity: 1; margin-top: 1.25rem; padding-top: 1.25rem; border-top: 1px dashed #e2e8f0; }
+        .order-expanded { border-color: #2563eb; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.1); }
         
         #summary-overlay, #backup-overlay, #cart-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #cart-overlay { align-items: flex-end; padding: 0; }
@@ -44,37 +46,37 @@
     <div id="cart-overlay">
         <div class="bg-white w-full max-w-md rounded-t-[3rem] p-8 shadow-2xl">
             <div class="flex justify-between items-center mb-6">
-                <h2 class="font-black text-xl uppercase italic text-blue-600">Cart Management</h2>
+                <h2 class="font-black text-xl uppercase italic text-blue-600">Active Order</h2>
                 <button onclick="closeCart()" class="bg-slate-100 p-2 rounded-full"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
             </div>
             <div id="cart-items-list" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar"></div>
             <div class="flex gap-3">
                 <button onclick="confirmWipeCart()" class="flex-1 bg-red-50 text-red-500 py-4 rounded-2xl font-black uppercase text-[10px]">Clear</button>
-                <button onclick="checkoutToQueue(); closeCart();" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-blue-200">Checkout Now</button>
+                <button onclick="checkoutToQueue(); closeCart();" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-blue-200">Submit Order</button>
             </div>
         </div>
     </div>
 
     <div id="backup-overlay">
         <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
-            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System</h2>
+            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
             <div class="grid gap-4">
-                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 font-bold uppercase text-sm">Backup <i data-lucide="download"></i></button>
-                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 font-bold uppercase text-sm">Reset Orders <i data-lucide="refresh-ccw"></i></button>
-                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 font-bold uppercase text-sm">Wipe All <i data-lucide="trash-2"></i></button>
+                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 font-bold uppercase text-sm">Backup Cloud <i data-lucide="download"></i></button>
+                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 font-bold uppercase text-sm">Clear History <i data-lucide="refresh-ccw"></i></button>
+                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 font-bold uppercase text-sm">Factory Reset <i data-lucide="trash-2"></i></button>
             </div>
-            <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Close</button>
+            <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Dismiss</button>
         </div>
     </div>
 
     <div id="summary-overlay">
         <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl">
             <div class="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="check" class="w-8 h-8"></i></div>
-            <h2 class="font-black text-2xl mb-1 uppercase">Success</h2>
+            <h2 class="font-black text-2xl mb-1 uppercase">Order Sent</h2>
             <p id="sum-id" class="text-slate-400 font-bold text-[10px] mb-8">#000</p>
             <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 text-left space-y-3 max-h-48 overflow-y-auto no-scrollbar"></div>
             <h3 id="sum-total" class="text-4xl font-black text-blue-600 mb-10">$0.00</h3>
-            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px]">Dismiss</button>
+            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px]">Done</button>
         </div>
     </div>
 
@@ -98,7 +100,7 @@
     <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3">
         <div class="relative flex items-center">
             <i data-lucide="search" class="absolute left-4 w-4 h-4 text-slate-400"></i>
-            <input type="text" id="cashier-search" placeholder="Search..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
+            <input type="text" id="cashier-search" placeholder="Search products..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
         </div>
     </div>
 
@@ -107,8 +109,8 @@
         
         <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-6">
             <div class="flex bg-slate-100 p-1.5 rounded-2xl w-fit mx-auto mb-8">
-                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600">Orders</button>
-                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Stock</button>
+                <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600">Live Orders</button>
+                <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Inventory</button>
             </div>
 
             <div id="sec-orders" class="space-y-4">
@@ -117,15 +119,21 @@
             </div>
 
             <div id="sec-stock" class="hidden space-y-6">
-                <button onclick="openBackupModal()" class="w-full bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600">System Settings</button>
+                <button onclick="openBackupModal()" class="w-full bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600">Database & Backup</button>
                 
                 <div id="category-manager-card" class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                     <div class="flex justify-between items-center cursor-pointer" onclick="toggleCategoryManager()">
-                        <h3 class="font-black text-sm uppercase">Category Manager</h3>
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="layers" class="w-5 h-5 text-blue-600"></i>
+                            <h3 class="font-black text-sm uppercase">Category Manager</h3>
+                        </div>
                         <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 rotate-icon"></i>
                     </div>
                     <div class="manager-content">
-                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">+ Add New</button></div>
+                        <div class="flex justify-between items-center mb-4">
+                            <p class="text-[9px] font-bold text-slate-400 uppercase italic">Edit existing or create new categories</p>
+                            <button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase">+ New</button>
+                        </div>
                         <div id="category-manager-list" class="grid grid-cols-1 gap-2"></div>
                     </div>
                 </div>
@@ -133,9 +141,9 @@
                 <div class="flex gap-3">
                     <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 flex-1">
                         <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
-                        <span class="text-[10px] font-black uppercase text-slate-500">Summary: OFF</span>
+                        <span class="text-[10px] font-black uppercase text-slate-500">Auto-Summary: OFF</span>
                     </button>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase flex-1">+ Add Product</button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase flex-1 shadow-xl">+ Add Item</button>
                 </div>
 
                 <div id="inventory-list" class="space-y-3 border-t border-slate-100 pt-6"></div>
@@ -144,16 +152,16 @@
     </main>
 
     <nav class="glass border-t border-slate-200 px-6 pt-4 pb-12 flex justify-around shrink-0 z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab">
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab transition-all">
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase">Cashier</span>
+            <span class="text-[10px] font-black uppercase">Store</span>
         </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400">
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
             <div class="relative">
                 <i data-lucide="clipboard-list" class="w-7 h-7"></i>
                 <div id="nav-badge" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
             </div>
-            <span class="text-[10px] font-black uppercase">Manage</span>
+            <span class="text-[10px] font-black uppercase">Dashboard</span>
         </button>
     </nav>
 
