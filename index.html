@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>TapMS | Cloud POS</title>
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/9402/9402314.png">
     
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -19,23 +20,93 @@
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         main { flex: 1; overflow-y: auto; padding-bottom: 280px !important; -webkit-overflow-scrolling: touch; }
         
+        #cat-bar { display: flex; overflow-x: auto; scroll-behavior: smooth; }
+        .manager-content { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        .manager-expanded .manager-content { max-height: 1000px; opacity: 1; margin-top: 1.5rem; }
+        .rotate-icon { transition: transform 0.3s ease; }
+        .manager-expanded .rotate-icon { transform: rotate(180deg); }
+
+        .item-tag-hover { position: relative; cursor: help; }
+        .item-preview-popup { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: white; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: none; z-index: 100; padding: 3px; border: 1px solid #e2e8f0; pointer-events: none; }
+        .item-tag-hover:hover .item-preview-popup { display: block; }
+
+        @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
+        .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
         .dot-connecting { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
+        
+        .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease-in-out; overflow: hidden; }
+        .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
         
         #summary-overlay, #backup-overlay, #cart-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #cart-overlay { align-items: flex-end; padding: 0; }
         #summary-overlay.active, #backup-overlay.active, #cart-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
-        @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.95); } 100% { transform: scale(1); } }
-        .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
+    
+    <div id="cart-overlay">
+        <div class="bg-white w-full max-w-md rounded-t-[3rem] p-8 shadow-2xl">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="font-black text-xl uppercase italic text-blue-600">Review Cart</h2>
+                <button onclick="closeCart()" class="bg-slate-100 p-2 rounded-full"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
+            </div>
+            <div id="cart-items-list" class="space-y-1 mb-8 max-h-[50vh] overflow-y-auto no-scrollbar"></div>
+            <div class="flex gap-3">
+                <button onclick="closeCart()" class="flex-1 bg-slate-100 py-4 rounded-2xl font-black uppercase text-[10px]">Back</button>
+                <button onclick="checkoutToQueue(); closeCart();" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg shadow-blue-200">Send Order</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="backup-overlay">
+        <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
+            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
+            <div class="grid gap-3">
+                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Make Backup</span>
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                </button>
+
+                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Import Backup</span>
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                </button>
+                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
+
+                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Reset Orders</span>
+                    <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
+                </button>
+
+                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Wipe All Data</span>
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Cancel</button>
+        </div>
+    </div>
+
+    <div id="summary-overlay">
+        <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="check-circle" class="w-10 h-10"></i></div>
+            <h2 class="font-black text-2xl mb-1 uppercase">Order Sent</h2>
+            <p id="sum-id" class="text-slate-400 font-bold text-[10px] mb-8 uppercase">#000</p>
+            <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 border border-slate-100 text-left space-y-3 max-h-48 overflow-y-auto no-scrollbar"></div>
+            <div class="flex justify-between items-center mb-10 px-4">
+                <span class="font-bold text-slate-400 text-[10px] uppercase">Total</span>
+                <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
+            </div>
+            <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px]">Continue</button>
+        </div>
+    </div>
 
     <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
         <div class="flex items-center gap-4">
             <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
+            
             <button onclick="openCart()" class="bg-blue-600 p-2.5 rounded-full shadow-lg active:scale-95 transition-all">
                 <i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i>
             </button>
@@ -54,6 +125,13 @@
 
     <div id="cat-bar" class="glass border-b border-slate-100 px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar shrink-0"></div>
 
+    <div id="search-container" class="hidden glass border-b border-slate-200 px-6 py-3">
+        <div class="relative flex items-center">
+            <i data-lucide="search" class="absolute left-4 w-4 h-4 text-slate-400"></i>
+            <input type="text" id="cashier-search" placeholder="Search products..." oninput="filterProducts(this.value)" class="w-full bg-slate-100 pl-11 pr-4 py-3 rounded-2xl font-bold text-sm outline-none">
+        </div>
+    </div>
+
     <main class="p-4 md:p-6">
         <div id="view-cashier" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
         
@@ -63,26 +141,39 @@
                 <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Stock</button>
             </div>
 
+            <div id="sec-orders" class="space-y-4">
+                <div id="pending-list" class="space-y-4"></div>
+                <div id="history-list" class="space-y-4 mt-8 border-t pt-8"></div>
+            </div>
+
             <div id="sec-stock" class="hidden space-y-6">
                 <button onclick="openBackupModal()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm active:scale-95 transition-all">
                     <i data-lucide="database" class="w-4 h-4"></i> System Tools
                 </button>
+                
+                <div id="category-manager-card" class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                    <div class="flex justify-between items-center cursor-pointer" onclick="toggleCategoryManager()">
+                        <div class="flex items-center gap-3">
+                            <div class="bg-blue-50 p-2 rounded-xl text-blue-600"><i data-lucide="layers" class="w-4 h-4"></i></div>
+                            <h3 class="font-black text-sm uppercase">Category Manager</h3>
+                        </div>
+                        <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 rotate-icon"></i>
+                    </div>
+                    <div class="manager-content">
+                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">+ New Category</button></div>
+                        <div id="category-manager-list" class="grid grid-cols-1 gap-2"></div>
+                    </div>
+                </div>
 
                 <div class="flex items-center justify-between gap-3">
                     <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 shadow-sm flex-1 active:scale-95 transition-all">
                         <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
                         <span class="text-[10px] font-black uppercase text-slate-500">Summary: OFF</span>
                     </button>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1 active:scale-95 transition-all">
-                        + Add Product
-                    </button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1 active:scale-95 transition-all">+ Add Product</button>
                 </div>
 
                 <div id="inventory-list" class="space-y-3 border-t border-slate-100 pt-6"></div>
-            </div>
-
-            <div id="sec-orders" class="space-y-4">
-                <div id="pending-list" class="space-y-4"></div>
             </div>
         </div>
     </main>
@@ -92,33 +183,14 @@
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
             <span class="text-[10px] font-black uppercase">Store</span>
         </button>
-        <button id="btn-manage" onclick="showView('manage')" class="flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
-            <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
+            <div class="relative">
+                <i data-lucide="clipboard-list" class="w-7 h-7"></i>
+                <div id="nav-badge" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
+            </div>
             <span class="text-[10px] font-black uppercase">Manage</span>
         </button>
     </nav>
-
-    <div id="backup-overlay">
-        <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
-            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
-            <div class="grid gap-3">
-                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 active:scale-95 transition-all">
-                    <span class="font-bold text-sm uppercase">Make Backup</span>
-                    <i data-lucide="download" class="w-5 h-5"></i>
-                </button>
-                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
-                    <span class="font-bold text-sm uppercase">Import Backup</span>
-                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
-                </button>
-                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
-                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
-                    <span class="font-bold text-sm uppercase">Wipe All Data</span>
-                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Cancel</button>
-        </div>
-    </div>
 
     <script src="script.js"></script>
 </body>
