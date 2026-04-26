@@ -1,6 +1,7 @@
 let YOUR_UID = "";
 let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
+let categories = ["All"]; // New state for explicit categories
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
 // --- INITIALIZATION ---
@@ -30,28 +31,34 @@ function startSync() {
         queue = data.queue || [];
         history = data.history || [];
         orderCounter = data.orderCounter || 0;
+        // Ensure "All" always exists and load others from DB
+        categories = data.categories || ["All"];
+        if (!categories.includes("All")) categories.unshift("All");
         render();
     });
 }
 
-function pushData() { db.ref('/').set({ products, queue, history, orderCounter }); }
+function pushData() { 
+    db.ref('/').set({ products, queue, history, orderCounter, categories }); 
+}
 
 // --- CORE RENDERING ---
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    const uniqueCats = [...new Set(products.map(p => p.cat || "").filter(Boolean))];
-    const cats = ["All", ...uniqueCats];
-    
+    // 1. Render Category Bar (Cashier)
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
-        catBar.innerHTML = cats.map(c => `
-            <button onclick="setCategory('${c}')" class="px-5 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">${c}</button>
+        catBar.innerHTML = categories.map(c => `
+            <button onclick="setCategory('${c}')" 
+                class="px-5 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">
+                ${c}
+            </button>
         `).join('');
     }
 
-    // Cashier view sort: Favorites first, then manual order from products array
+    // 2. Render Product Grid (Cashier)
     const filtered = products.filter(p => 
         p.name.toLowerCase().includes(searchTerm) && 
         (currentCat === "All" || (p.cat || "") === currentCat)
@@ -76,14 +83,30 @@ function render() {
         }).join('');
     }
 
+    // 3. Render Category Manager (In Stock View)
+    const catManager = document.getElementById('category-manager-list');
+    if(catManager) {
+        catManager.innerHTML = categories.filter(c => c !== "All").map((c, idx) => `
+            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                <div class="flex flex-col">
+                    <button onclick="moveCat(${idx+1}, -1)" class="p-1 text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-3 h-3"></i></button>
+                    <button onclick="moveCat(${idx+1}, 1)" class="p-1 text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-3 h-3"></i></button>
+                </div>
+                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none">
+                <button onclick="removeCat(${idx+1})" class="p-2 text-red-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+        `).join('');
+    }
+
+    // 4. Render Inventory Items
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
             <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4">
                 <div class="flex items-center gap-4">
                     <div class="flex flex-col gap-1">
-                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 active:scale-90"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
-                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 active:scale-90"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
@@ -97,21 +120,15 @@ function render() {
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} active:scale-125 transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
+                        <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'} transition-all"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
                         <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
-                <div class="flex flex-col gap-2">
-                    <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 border border-slate-100'}">None</button>
-                        ${uniqueCats.map(c => `
-                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
-                        `).join('')}
-                    </div>
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="plus-circle" class="w-3 h-3 text-slate-300"></i>
-                        <input type="text" placeholder="New Category..." onchange="editItem(${p.id}, 'cat', this.value)" class="text-[9px] font-bold bg-transparent outline-none w-full text-slate-400 italic">
-                    </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}">None</button>
+                    ${categories.filter(c => c !== "All").map(c => `
+                        <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
+                    `).join('')}
                 </div>
             </div>
         `).join('');
@@ -120,7 +137,36 @@ function render() {
     lucide.createIcons();
 }
 
-// --- REORDERING ---
+// --- CATEGORY ACTIONS ---
+window.addCat = () => { 
+    const name = prompt("Enter new category name:"); 
+    if(name) { categories.push(name); pushData(); } 
+};
+window.editCatName = (idx, newName) => {
+    const oldName = categories[idx];
+    categories[idx] = newName;
+    // Update all products using the old category name
+    products.forEach(p => { if(p.cat === oldName) p.cat = newName; });
+    pushData();
+};
+window.removeCat = (idx) => {
+    if(confirm(`Delete category "${categories[idx]}"? Products will become 'None'.`)) {
+        const oldName = categories[idx];
+        categories.splice(idx, 1);
+        products.forEach(p => { if(p.cat === oldName) p.cat = ""; });
+        pushData();
+    }
+};
+window.moveCat = (idx, step) => {
+    const newIdx = idx + step;
+    if(newIdx < 1 || newIdx >= categories.length) return; // index 0 is always "All"
+    const temp = categories[idx];
+    categories[idx] = categories[newIdx];
+    categories[newIdx] = temp;
+    pushData();
+};
+
+// --- REST OF ACTIONS (Keep existing) ---
 window.moveItem = (index, step) => {
     const newIndex = index + step;
     if (newIndex < 0 || newIndex >= products.length) return;
@@ -129,22 +175,15 @@ window.moveItem = (index, step) => {
     products[newIndex] = temp;
     pushData();
 };
-
-// --- PRODUCT ACTIONS ---
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
-    if(el) { 
-        el.classList.remove('tap-feedback');
-        void el.offsetWidth; // Force reflow
-        el.classList.add('tap-feedback');
-    }
+    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
     setTimeout(() => render(), 150); 
 };
-
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
@@ -152,7 +191,6 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 
-// --- CART & ORDER LOGIC ---
 window.checkoutToQueue = () => {
     if(!cart.length) return;
     orderCounter++;
@@ -162,15 +200,12 @@ window.checkoutToQueue = () => {
     if(summaryEnabled) openSummary(order);
     cart = []; render(); pushData();
 };
-
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.reorder = idx => { const item = history[idx]; orderCounter++; queue.unshift({ ...item, orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
 window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = val; else history[idx].desc = val; pushData(); };
 window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(idx, 1); else history.splice(idx, 1); pushData(); };
 window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
-
-// --- UI UTILS ---
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
@@ -178,7 +213,6 @@ window.showView = v => {
     document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
     document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
 };
-
 window.toggleManageSection = sec => {
     document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
     document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
@@ -186,7 +220,6 @@ window.toggleManageSection = sec => {
     bO.className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
     bS.className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
-
 window.toggleSummary = () => {
     summaryEnabled = !summaryEnabled;
     const dot = document.getElementById('toggle-dot');
@@ -195,7 +228,6 @@ window.toggleSummary = () => {
     label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF";
     label.className = summaryEnabled ? "text-[10px] font-black uppercase text-blue-600" : "text-[10px] font-black uppercase text-slate-500";
 };
-
 function openSummary(ord) {
     document.getElementById('sum-id').innerText = `#${ord.orderNum}`;
     document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`;
@@ -204,23 +236,27 @@ function openSummary(ord) {
 }
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
-
-// --- DATA TOOLS ---
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
 window.executeExport = () => {
-    const blob = new Blob([JSON.stringify(products, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" });
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `TapMS_Backup.json`; a.click();
     closeBackupModal();
 };
 window.triggerImport = () => document.getElementById('db-import-input').click();
 window.importDatabase = (e) => {
     const reader = new FileReader();
-    reader.onload = (ev) => { try { products = JSON.parse(ev.target.result); pushData(); alert("Restore Complete!"); closeBackupModal(); } catch { alert("Invalid File!"); } };
+    reader.onload = (ev) => { 
+        try { 
+            const d = JSON.parse(ev.target.result); 
+            products = d.products || [];
+            categories = d.categories || ["All"];
+            pushData(); alert("Restore Complete!"); closeBackupModal(); 
+        } catch { alert("Invalid File!"); } 
+    };
     reader.readAsText(e.target.files[0]);
 };
-
-window.confirmWipe = () => { if (confirm("Wipe all data?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0 }); location.reload(); } };
+window.confirmWipe = () => { if (confirm("Wipe all data?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
 
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
