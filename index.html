@@ -20,10 +20,17 @@
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         main { flex: 1; overflow-y: auto; padding-bottom: 280px !important; -webkit-overflow-scrolling: touch; }
         
-        #cat-bar { display: flex; justify-content: flex-start; align-items: center; overflow-x: auto; scroll-behavior: smooth; }
-        #cat-bar button { flex-shrink: 0; }
+        /* The Restored Tap Animation */
+        @keyframes tap-pop { 
+            0% { transform: scale(1); } 
+            40% { transform: scale(0.92); } 
+            100% { transform: scale(1); } 
+        }
+        .tap-feedback { animation: tap-pop 0.15s cubic-bezier(0.2, 0.8, 0.2, 1); }
 
-        .manager-content { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
+        /* Existing Styles */
+        #cat-bar { display: flex; overflow-x: auto; scroll-behavior: smooth; }
+        .manager-content { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s ease; }
         .manager-expanded .manager-content { max-height: 1000px; opacity: 1; margin-top: 1.5rem; }
         .rotate-icon { transition: transform 0.3s ease; }
         .manager-expanded .rotate-icon { transform: rotate(180deg); }
@@ -36,15 +43,10 @@
             padding: 3px; border: 1px solid #e2e8f0; pointer-events: none;
         }
         .item-tag-hover:hover .item-preview-popup { display: block; }
-
-        @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
-        .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
         .dot-connecting { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
-        
-        .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease-in-out; overflow: hidden; }
+        .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease; overflow: hidden; }
         .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
-        
         #summary-overlay, #backup-overlay, #cart-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #cart-overlay { align-items: flex-end; padding: 0; }
         #summary-overlay.active, #backup-overlay.active, #cart-overlay.active { display: flex; }
@@ -56,36 +58,24 @@
     <div id="cart-overlay">
         <div class="bg-white w-full max-w-md rounded-t-[3rem] p-8 shadow-2xl">
             <div class="flex justify-between items-center mb-6">
-                <div class="flex items-center gap-2">
-                    <i data-lucide="shopping-bag" class="w-5 h-5 text-blue-600"></i>
-                    <h2 class="font-black text-xl uppercase italic">Current Cart</h2>
-                </div>
+                <h2 class="font-black text-xl uppercase italic text-blue-600">Edit Cart</h2>
                 <button onclick="closeCart()" class="bg-slate-100 p-2 rounded-full"><i data-lucide="x" class="w-5 h-5 text-slate-400"></i></button>
             </div>
             <div id="cart-items-list" class="space-y-1 mb-8 max-h-[40vh] overflow-y-auto no-scrollbar"></div>
             <div class="flex gap-3">
                 <button onclick="confirmWipeCart()" class="flex-1 bg-red-50 text-red-500 py-4 rounded-2xl font-black uppercase text-[10px]">Clear</button>
-                <button onclick="checkoutToQueue(); closeCart();" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg">Checkout Now</button>
+                <button onclick="checkoutToQueue(); closeCart();" class="flex-[2] bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px] shadow-lg">Checkout</button>
             </div>
         </div>
     </div>
 
     <div id="backup-overlay">
         <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
-            <h2 class="font-black text-xl mb-6 uppercase tracking-tight text-slate-400">System Tools</h2>
+            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">Database Tools</h2>
             <div class="grid gap-4">
-                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600">
-                    <span class="font-bold text-sm uppercase">Backup</span>
-                    <i data-lucide="download" class="w-5 h-5"></i>
-                </button>
-                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600">
-                    <span class="font-bold text-sm uppercase">Reset Orders</span>
-                    <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
-                </button>
-                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600">
-                    <span class="font-bold text-sm uppercase">Wipe All</span>
-                    <i data-lucide="trash-2" class="w-5 h-5"></i>
-                </button>
+                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 font-bold uppercase text-sm">Backup <i data-lucide="download"></i></button>
+                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 font-bold uppercase text-sm">Reset Orders <i data-lucide="refresh-ccw"></i></button>
+                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 font-bold uppercase text-sm">Wipe All <i data-lucide="trash-2"></i></button>
             </div>
             <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Cancel</button>
         </div>
@@ -97,25 +87,19 @@
             <h2 class="font-black text-2xl mb-1 uppercase">Order Sent</h2>
             <p id="sum-id" class="text-slate-400 font-bold text-[10px] mb-8">#000</p>
             <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 text-left space-y-3 max-h-48 overflow-y-auto"></div>
-            <div class="flex justify-between items-center mb-10 px-4">
-                <span class="font-bold text-slate-400 text-[10px] uppercase">Total</span>
-                <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
-            </div>
+            <h3 id="sum-total" class="text-4xl font-black text-blue-600 mb-10">$0.00</h3>
             <button onclick="closeSummary()" class="w-full bg-slate-900 text-white py-6 rounded-[2rem] font-black uppercase text-[10px]">Close</button>
         </div>
     </div>
 
     <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
-        <div class="flex items-center gap-3 cursor-pointer group" onclick="openCart()">
+        <div class="flex items-center gap-3 cursor-pointer" onclick="openCart()">
             <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
-            <div class="bg-blue-600 p-2 rounded-2xl shadow-lg group-active:scale-90 transition-transform">
-                <i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i>
-            </div>
-            <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
+            <div class="bg-blue-600 p-2 rounded-2xl shadow-lg"><i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i></div>
+            <h1 class="font-extrabold text-xl tracking-tight">TapMS</h1>
         </div>
-        
         <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
+             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
              <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
                 <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
@@ -134,63 +118,42 @@
 
     <main class="p-4 md:p-6">
         <div id="view-cashier" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
-        
         <div id="view-manage" class="hidden max-w-4xl mx-auto space-y-6">
             <div class="flex bg-slate-100 p-1.5 rounded-2xl w-fit mx-auto mb-8">
                 <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600">Orders</button>
                 <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400">Stock</button>
             </div>
-
             <div id="sec-orders" class="space-y-4">
                 <div id="pending-list" class="space-y-4"></div>
                 <div id="history-list" class="space-y-4 mt-8 border-t pt-8"></div>
             </div>
-
             <div id="sec-stock" class="hidden space-y-6">
-                <button onclick="openBackupModal()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm active:scale-95 transition-all">
-                    <i data-lucide="settings" class="w-4 h-4"></i> System Tools
-                </button>
-                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
-                
+                <button onclick="openBackupModal()" class="w-full bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600">Database Tools</button>
                 <div id="category-manager-card" class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                     <div class="flex justify-between items-center cursor-pointer" onclick="toggleCategoryManager()">
-                        <div class="flex items-center gap-3">
-                            <div class="bg-blue-50 p-2 rounded-xl text-blue-600"><i data-lucide="layers" class="w-4 h-4"></i></div>
-                            <h3 class="font-black text-sm uppercase">Category Manager</h3>
-                        </div>
+                        <h3 class="font-black text-sm uppercase">Category Manager</h3>
                         <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 rotate-icon"></i>
                     </div>
                     <div class="manager-content">
-                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">+ New Category</button></div>
+                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">+ New</button></div>
                         <div id="category-manager-list" class="grid grid-cols-1 gap-2"></div>
                     </div>
                 </div>
-
-                <div class="flex items-center justify-between gap-3">
-                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 shadow-sm flex-1">
+                <div class="flex gap-3">
+                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 flex-1">
                         <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
                         <span class="text-[10px] font-black uppercase text-slate-500">Summary: OFF</span>
                     </button>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1">+ Add Product</button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase flex-1">+ Add Product</button>
                 </div>
-
                 <div id="inventory-list" class="space-y-3 border-t border-slate-100 pt-6"></div>
             </div>
         </div>
     </main>
 
     <nav class="glass border-t border-slate-200 px-6 pt-4 pb-12 flex justify-around shrink-0 z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab transition-all">
-            <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase">Cashier</span>
-        </button>
-        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
-            <div class="relative">
-                <i data-lucide="clipboard-list" class="w-7 h-7"></i>
-                <div id="nav-badge" class="hidden absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></div>
-            </div>
-            <span class="text-[10px] font-black uppercase">Manage</span>
-        </button>
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab"><i data-lucide="shopping-cart" class="w-7 h-7"></i><span class="text-[10px] font-black">CASHIER</span></button>
+        <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400"><i data-lucide="clipboard-list" class="w-7 h-7"></i><div id="nav-badge" class="hidden absolute top-2 right-4 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></div><span class="text-[10px] font-black">MANAGE</span></button>
     </nav>
 
     <script src="script.js"></script>
