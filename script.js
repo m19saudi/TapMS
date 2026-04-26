@@ -39,10 +39,11 @@ function startSync() {
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter, categories }); }
 
 function render() {
+    // Restored Manage Notification Logic
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Category Bar (Cashier)
+    // Render Category Bar
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
@@ -50,16 +51,16 @@ function render() {
         `).join('');
     }
 
-    // Cashier View
+    // Render Product Grid
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => {
             const qty = (cart.find(c => c.id === p.id) || {qty:0}).qty;
             return `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
-                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10 scale-in-center">${qty}</div>` : ''}
-                <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
+            <div class="product-card bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(${p.id})">
+                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
+                <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
                 </div>
                 <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
@@ -68,7 +69,7 @@ function render() {
         }).join('');
     }
 
-    // Stock Management (With manual category Typing)
+    // Render Inventory List (Improved Category Assignment Design)
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
@@ -76,48 +77,38 @@ function render() {
                 <div class="flex items-center gap-4">
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
-                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold" placeholder="URL">
+                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
                     </div>
-                    <div class="flex-1 min-w-0">
-                        <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block" placeholder="Item Name">
+                    <div class="flex-1">
+                        <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate" placeholder="Name">
                         <div class="flex items-center mt-1">
                             <span class="text-blue-600 font-black text-[11px] mr-1">$</span>
                             <input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-24 font-black text-sm bg-transparent outline-none text-blue-600">
                         </div>
                     </div>
-                    <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <button onclick="removeItem(${p.id})" class="text-red-300"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
-                <div class="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                    <p class="text-[9px] font-black uppercase text-slate-400 mb-2">Category Assignment</p>
-                    <input type="text" value="${p.cat || ''}" onchange="editItem(${p.id}, 'cat', this.value)" placeholder="Type category manually..." class="w-full bg-white p-2 rounded-lg text-xs font-bold text-blue-600 border border-slate-200 outline-none mb-2">
+                <div class="bg-slate-50 rounded-[1.5rem] p-3 border border-slate-100">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="tag" class="w-3 h-3 text-slate-400"></i>
+                        <input type="text" value="${p.cat || ''}" onchange="editItem(${p.id}, 'cat', this.value)" placeholder="Type category..." class="flex-1 bg-white px-3 py-1.5 rounded-lg text-[11px] font-black text-blue-600 border border-slate-200 outline-none uppercase">
+                    </div>
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-2 py-1 bg-white border border-slate-200 rounded text-[9px] font-bold text-slate-400">Clear</button>
-                        ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-2 py-1 bg-blue-50 text-blue-600 rounded text-[9px] font-bold">${c}</button>`).join('')}
+                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1 bg-white border border-slate-200 rounded-lg text-[9px] font-black text-slate-400 uppercase">None</button>
+                        ${categories.filter(c => c !== "All").map(c => `
+                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1 rounded-lg text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-400'}">${c}</button>
+                        `).join('')}
                     </div>
                 </div>
-            </div>
-        `).join('');
-    }
-
-    // Category Manager List
-    const catManager = document.getElementById('category-manager-list');
-    if(catManager) {
-        catManager.innerHTML = categories.filter(c => c !== "All").map((c, idx) => `
-            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none px-2">
-                <button onclick="removeCat(${idx+1})" class="p-2 text-red-300"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </div>
-        `).join('');
+            </div>`).join('');
     }
 
     renderPendingAndHistory();
     lucide.createIcons();
 }
 
-// --- ACTIONS ---
-window.handleProductTap = (e, id) => {
-    const el = document.getElementById(`prod-${id}`);
-    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
+// --- LOGIC ---
+window.handleProductTap = (id) => {
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
@@ -174,7 +165,7 @@ window.toggleManageSection = sec => {
     document.getElementById('sub-btn-orders').className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black bg-white text-blue-600 shadow-sm" : "px-6 py-2 rounded-xl text-xs font-black text-slate-400";
     document.getElementById('sub-btn-stock').className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black bg-white text-blue-600 shadow-sm" : "px-6 py-2 rounded-xl text-xs font-black text-slate-400";
 };
-window.resetOnlyOrders = () => { if(confirm("Reset all orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
+window.resetOnlyOrders = () => { if(confirm("Reset orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
 window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
