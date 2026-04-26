@@ -68,18 +68,15 @@
                     <span class="font-bold text-sm uppercase">Make Backup</span>
                     <i data-lucide="download" class="w-5 h-5"></i>
                 </button>
-
                 <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Import Backup</span>
                     <i data-lucide="upload-cloud" class="w-5 h-5"></i>
                 </button>
                 <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
-
                 <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Reset Orders</span>
                     <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                 </button>
-
                 <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Wipe All Data</span>
                     <i data-lucide="trash-2" class="w-5 h-5"></i>
