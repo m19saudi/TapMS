@@ -51,6 +51,7 @@ function render() {
         `).join('');
     }
 
+    // Cashier view sort: Favorites first, then manual order from products array
     const filtered = products.filter(p => 
         p.name.toLowerCase().includes(searchTerm) && 
         (currentCat === "All" || (p.cat || "") === currentCat)
@@ -62,7 +63,7 @@ function render() {
             const cartItem = cart.find(c => c.id === p.id);
             const qty = cartItem ? cartItem.qty : 0;
             return `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none" onclick="handleProductTap(event, ${p.id})">
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
                 ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10 animate-in zoom-in duration-200">${qty}</div>` : ''}
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
@@ -77,9 +78,13 @@ function render() {
 
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
-        inventoryList.innerHTML = products.map(p => `
+        inventoryList.innerHTML = products.map((p, idx) => `
             <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4">
                 <div class="flex items-center gap-4">
+                    <div class="flex flex-col gap-1">
+                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 active:scale-90"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600 active:scale-90"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                    </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
                         <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
@@ -98,7 +103,7 @@ function render() {
                 </div>
                 <div class="flex flex-col gap-2">
                     <div class="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 border border-slate-50'}">None</button>
+                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400 border border-slate-100'}">None</button>
                         ${uniqueCats.map(c => `
                             <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase whitespace-nowrap transition-all ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
                         `).join('')}
@@ -115,22 +120,28 @@ function render() {
     lucide.createIcons();
 }
 
+// --- REORDERING ---
+window.moveItem = (index, step) => {
+    const newIndex = index + step;
+    if (newIndex < 0 || newIndex >= products.length) return;
+    const temp = products[index];
+    products[index] = products[newIndex];
+    products[newIndex] = temp;
+    pushData();
+};
+
 // --- PRODUCT ACTIONS ---
 window.handleProductTap = (e, id) => {
-    // Stop the browser from selecting/dragging when clicking fast on PC
     if (e) e.preventDefault(); 
-    
     const el = document.getElementById(`prod-${id}`);
     if(el) { 
         el.classList.remove('tap-feedback');
         void el.offsetWidth; // Force reflow
         el.classList.add('tap-feedback');
     }
-    
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    
     setTimeout(() => render(), 150); 
 };
 
