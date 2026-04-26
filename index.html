@@ -20,22 +20,14 @@
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         main { flex: 1; overflow-y: auto; padding-bottom: 280px !important; -webkit-overflow-scrolling: touch; }
         
-        #cat-bar { display: flex; justify-content: flex-start; align-items: center; overflow-x: auto; scroll-behavior: smooth; }
-        #cat-bar button { flex-shrink: 0; }
-
+        #cat-bar { display: flex; overflow-x: auto; scroll-behavior: smooth; }
         .manager-content { max-height: 0; opacity: 0; overflow: hidden; transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
         .manager-expanded .manager-content { max-height: 1000px; opacity: 1; margin-top: 1.5rem; }
         .rotate-icon { transition: transform 0.3s ease; }
         .manager-expanded .rotate-icon { transform: rotate(180deg); }
 
-        /* Hover Image Preview */
         .item-tag-hover { position: relative; cursor: help; }
-        .item-preview-popup { 
-            position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%);
-            width: 70px; height: 70px; background: white; border-radius: 12px;
-            box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: none; z-index: 100;
-            padding: 3px; border: 1px solid #e2e8f0; pointer-events: none;
-        }
+        .item-preview-popup { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: white; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: none; z-index: 100; padding: 3px; border: 1px solid #e2e8f0; pointer-events: none; }
         .item-tag-hover:hover .item-preview-popup { display: block; }
 
         @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
@@ -47,7 +39,7 @@
         .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
         
         #summary-overlay, #backup-overlay, #cart-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
-        #cart-overlay { align-items: flex-end; }
+        #cart-overlay { align-items: flex-end; padding: 0; }
         #summary-overlay.active, #backup-overlay.active, #cart-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
     </style>
@@ -70,16 +62,24 @@
 
     <div id="backup-overlay">
         <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
-            <h2 class="font-black text-xl mb-6 uppercase tracking-tight text-slate-400">System Tools</h2>
-            <div class="grid gap-4">
+            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
+            <div class="grid gap-3">
                 <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Make Backup</span>
                     <i data-lucide="download" class="w-5 h-5"></i>
                 </button>
+
+                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Import Backup</span>
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                </button>
+                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
+
                 <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Reset Orders</span>
                     <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                 </button>
+
                 <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Wipe All Data</span>
                     <i data-lucide="trash-2" class="w-5 h-5"></i>
@@ -92,9 +92,9 @@
     <div id="summary-overlay">
         <div class="bg-white w-full max-w-sm rounded-[3.5rem] p-10 text-center shadow-2xl">
             <div class="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6"><i data-lucide="check-circle" class="w-10 h-10"></i></div>
-            <h2 class="font-black text-2xl mb-1 text-slate-900 uppercase">Order Sent</h2>
+            <h2 class="font-black text-2xl mb-1 uppercase">Order Sent</h2>
             <p id="sum-id" class="text-slate-400 font-bold text-[10px] mb-8 uppercase">#000</p>
-            <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 border border-slate-100 text-left space-y-3 max-h-48 overflow-y-auto"></div>
+            <div id="sum-details" class="bg-slate-50 rounded-[2.5rem] p-6 mb-8 border border-slate-100 text-left space-y-3 max-h-48 overflow-y-auto no-scrollbar"></div>
             <div class="flex justify-between items-center mb-10 px-4">
                 <span class="font-bold text-slate-400 text-[10px] uppercase">Total</span>
                 <h3 id="sum-total" class="text-4xl font-black text-blue-600">$0.00</h3>
@@ -104,16 +104,21 @@
     </div>
 
     <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
-        <div class="flex items-center gap-3">
-            <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
-            <div class="bg-blue-600 p-2 rounded-2xl shadow-lg"><i data-lucide="layout-grid" class="w-5 h-5 text-white"></i></div>
-            <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
+        <div class="flex items-center gap-4">
+            <button onclick="openCart()" class="relative bg-blue-600 p-2.5 rounded-2xl shadow-lg active:scale-95 transition-all">
+                <i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i>
+                <div id="cart-count-left" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[8px] font-black h-4 w-4 rounded-full flex items-center justify-center border-2 border-white">0</div>
+            </button>
+            <div class="flex items-center gap-2">
+                <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
+                <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
+            </div>
         </div>
         <div class="flex items-center gap-2">
              <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
-             <button onclick="openCart()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
-                <i data-lucide="shopping-bag" class="w-6 h-6 text-white"></i>
-                <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
+             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-slate-900 rounded-2xl active:scale-95 shadow-md">
+                <i data-lucide="send" class="w-6 h-6 text-white"></i>
+                <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-blue-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
              </button>
         </div>
     </nav>
@@ -143,9 +148,8 @@
 
             <div id="sec-stock" class="hidden space-y-6">
                 <button onclick="openBackupModal()" class="w-full flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm active:scale-95 transition-all">
-                    <i data-lucide="database" class="w-4 h-4"></i> Manage Database
+                    <i data-lucide="database" class="w-4 h-4"></i> System Tools
                 </button>
-                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
                 
                 <div id="category-manager-card" class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                     <div class="flex justify-between items-center cursor-pointer" onclick="toggleCategoryManager()">
@@ -177,7 +181,7 @@
     <nav class="glass border-t border-slate-200 px-6 pt-4 pb-12 flex justify-around shrink-0 z-50">
         <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab transition-all">
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase">Cashier</span>
+            <span class="text-[10px] font-black uppercase">Store</span>
         </button>
         <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
             <div class="relative">
