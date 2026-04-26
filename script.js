@@ -46,18 +46,18 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Category Bar (Cashier)
+    // Category Bar
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
             <button onclick="setCategory('${c}')" 
-                class="px-5 py-2 rounded-full text-[10px] font-black uppercase whitespace-nowrap flex-shrink-0 transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">
+                class="px-5 py-2 rounded-full text-[10px] font-black uppercase transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">
                 ${c}
             </button>
         `).join('');
     }
 
-    // Product Grid (Cashier)
+    // Cashier Grid
     const filtered = products.filter(p => 
         p.name.toLowerCase().includes(searchTerm) && 
         (currentCat === "All" || (p.cat || "") === currentCat)
@@ -82,7 +82,7 @@ function render() {
         }).join('');
     }
 
-    // Inventory Rendering
+    // Stock Management
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
@@ -142,9 +142,10 @@ function render() {
     lucide.createIcons();
 }
 
-// --- CART LOGIC ---
-window.openCart = () => { if(cart.length) { document.getElementById('cart-overlay').classList.add('active'); renderCart(); } };
+// --- CART MGMT ---
+window.openCart = () => { if(cart.length) { document.getElementById('cart-overlay').classList.add('active'); renderCart(); } else { alert("Cart is empty!"); } };
 window.closeCart = () => document.getElementById('cart-overlay').classList.remove('active');
+window.confirmWipeCart = () => { if(confirm("Clear entire cart?")) { cart = []; closeCart(); render(); } };
 function renderCart() {
     const list = document.getElementById('cart-items-list');
     list.innerHTML = cart.map((item, idx) => `
@@ -164,15 +165,7 @@ function renderCart() {
 }
 window.updateCartQty = (idx, d) => { cart[idx].qty += d; if(cart[idx].qty <= 0) cart.splice(idx, 1); if(!cart.length) closeCart(); render(); renderCart(); };
 
-// --- SYSTEM TOOLS ---
-window.resetOnlyOrders = () => { if(confirm("Reset orders? Products won't be touched.")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
-window.toggleCategoryManager = () => document.getElementById('category-manager-card').classList.toggle('manager-expanded');
-window.addCat = () => { const n = prompt("New category:"); if(n) { categories.push(n); pushData(); } };
-window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
-window.removeCat = i => { if(confirm("Delete category?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
-window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
-
-// --- CORE ACTIONS ---
+// --- ACTIONS ---
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
@@ -180,8 +173,26 @@ window.handleProductTap = (e, id) => {
     const p = products.find(x => x.id === id);
     const entry = cart.find(i => i.id === id);
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    setTimeout(() => render(), 150); 
+    render();
 };
+
+window.checkoutToQueue = () => {
+    if(!cart.length) return;
+    orderCounter++;
+    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    const order = { orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() };
+    queue.unshift(order);
+    if(summaryEnabled) openSummary(order);
+    cart = []; render(); pushData();
+};
+
+// --- SYSTEM UTILS ---
+window.resetOnlyOrders = () => { if(confirm("Clear all orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
+window.toggleCategoryManager = () => document.getElementById('category-manager-card').classList.toggle('manager-expanded');
+window.addCat = () => { const n = prompt("Category name:"); if(n) { categories.push(n); pushData(); } };
+window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
+window.removeCat = i => { if(confirm("Delete?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
+window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
@@ -190,14 +201,6 @@ window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
 
-window.checkoutToQueue = () => {
-    if(!cart.length) return;
-    orderCounter++;
-    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    queue.unshift({ orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() });
-    if(summaryEnabled) openSummary(queue[0]);
-    cart = []; render(); pushData();
-};
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
 window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
@@ -224,7 +227,6 @@ window.toggleSummary = () => {
     const label = document.getElementById('summary-toggle-ui').querySelector('span');
     dot.className = summaryEnabled ? "w-2.5 h-2.5 rounded-full bg-blue-600" : "w-2.5 h-2.5 rounded-full bg-slate-300";
     label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF";
-    label.className = summaryEnabled ? "text-[10px] font-black uppercase text-blue-600" : "text-[10px] font-black uppercase text-slate-500";
 };
 function openSummary(ord) {
     document.getElementById('sum-id').innerText = `#${ord.orderNum}`;
@@ -236,10 +238,10 @@ window.closeSummary = () => document.getElementById('summary-overlay').classList
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
-window.executeExport = () => { const blob = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `TapMS_Backup.json`; a.click(); closeBackupModal(); };
+window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 window.triggerImport = () => document.getElementById('db-import-input').click();
 window.importDatabase = (e) => { const r = new FileReader(); r.onload = (ev) => { try { const d = JSON.parse(ev.target.result); products = d.products; categories = d.categories; pushData(); } catch { alert("Invalid!"); } }; r.readAsText(e.target.files[0]); };
-window.confirmWipe = () => { if (confirm("Wipe ALL data?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
+window.confirmWipe = () => { if (confirm("Wipe all?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
 
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
@@ -248,15 +250,10 @@ function renderPendingAndHistory() {
             <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
                 <div class="bg-white px-3 py-2 rounded-xl border border-blue-100 flex items-center gap-2 mb-3">
                     <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
-                    <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
+                    <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
                 <div class="flex flex-wrap gap-2 mb-4">
-                    ${ord.items.map(i => `
-                        <div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">
-                            ${i.name} x${i.qty}
-                            <div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div>
-                        </div>
-                    `).join('')}
+                    ${ord.items.map(i => `<div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}<div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div></div>`).join('')}
                 </div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
@@ -276,10 +273,7 @@ function renderPendingAndHistory() {
                 <div class="order-detail">
                     <p class="text-[10px] text-slate-400 font-bold mb-3">${h.date}</p>
                     <div class="flex flex-wrap gap-2 mb-4">${h.items.map(i => `<span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">${i.name} x${i.qty}</span>`).join('')}</div>
-                    <div class="flex gap-2">
-                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button>
-                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    </div>
+                    <div class="flex gap-2"><button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit</button><button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
                 </div>
             </div>
         `).join('');
