@@ -4,7 +4,6 @@ let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
-// --- INITIALIZATION ---
 async function initTapMS() {
     try {
         const response = await fetch('/api/config');
@@ -39,12 +38,10 @@ function startSync() {
 
 function pushData() { db.ref('/').set({ products, queue, history, orderCounter, categories }); }
 
-// --- CORE RENDERING ---
 function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // Category Bar
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
@@ -52,7 +49,6 @@ function render() {
         `).join('');
     }
 
-    // Product Grid
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
@@ -65,13 +61,12 @@ function render() {
                     <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 left-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
                 </div>
-                <h3 class="font-bold text-center text-[11px] truncate px-1 uppercase">${p.name}</h3>
+                <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
                 <p class="text-blue-600 font-black text-center text-[10px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
             </div>`;
         }).join('');
     }
 
-    // Stock Management List
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
@@ -118,7 +113,6 @@ function render() {
     lucide.createIcons();
 }
 
-// --- CART LOGIC ---
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
@@ -149,7 +143,6 @@ function renderCart() {
 }
 window.updateCartQty = (idx, d) => { cart[idx].qty += d; if(cart[idx].qty <= 0) cart.splice(idx, 1); if(!cart.length) closeCart(); render(); renderCart(); };
 
-// --- CORE ACTIONS ---
 window.checkoutToQueue = () => {
     if(!cart.length) return;
     orderCounter++;
@@ -192,16 +185,15 @@ function renderPendingAndHistory() {
             </div>`).join('');
     }
     
-    // Counter Badge Logic
     const tq = cart.reduce((s, i) => s + i.qty, 0);
     const tb = document.getElementById('cart-count-top');
-    const tbl = document.getElementById('cart-count-left');
-    if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
-    if(tbl) { tbl.innerText = tq; tbl.classList.toggle('hidden', tq === 0); }
+    if(tb) { 
+        tb.innerText = tq; 
+        tb.classList.toggle('hidden', tq === 0); 
+    }
 }
 
-// --- DATABASE TOOLS ---
-window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `TapMS_Backup.json`; a.click(); closeBackupModal(); };
+window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 
 window.importDatabase = (e) => {
     const r = new FileReader();
@@ -210,19 +202,18 @@ window.importDatabase = (e) => {
             const data = JSON.parse(ev.target.result);
             products = data.products || [];
             categories = data.categories || ["All"];
-            pushData(); // Sync to Firebase
+            pushData();
             alert("Restored Successfully!");
             closeBackupModal();
         } catch { alert("Invalid File!"); }
     };
     r.readAsText(e.target.files[0]);
-    e.target.value = ''; // Reset input
+    e.target.value = '';
 };
 
 window.confirmWipe = () => { if (confirm("Wipe ALL?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
 window.resetOnlyOrders = () => { if(confirm("Reset orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
 
-// --- UI UTILS ---
 window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded');
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
