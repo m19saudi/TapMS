@@ -1,7 +1,7 @@
 let YOUR_UID = "";
 let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
-let categories = ["All"]; // New state for explicit categories
+let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
 // --- INITIALIZATION ---
@@ -31,7 +31,6 @@ function startSync() {
         queue = data.queue || [];
         history = data.history || [];
         orderCounter = data.orderCounter || 0;
-        // Ensure "All" always exists and load others from DB
         categories = data.categories || ["All"];
         if (!categories.includes("All")) categories.unshift("All");
         render();
@@ -44,10 +43,11 @@ function pushData() {
 
 // --- CORE RENDERING ---
 function render() {
+    // 1. Badge Updates
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // 1. Render Category Bar (Cashier)
+    // 2. Cashier Category Bar
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
@@ -58,7 +58,7 @@ function render() {
         `).join('');
     }
 
-    // 2. Render Product Grid (Cashier)
+    // 3. Cashier Product Grid
     const filtered = products.filter(p => 
         p.name.toLowerCase().includes(searchTerm) && 
         (currentCat === "All" || (p.cat || "") === currentCat)
@@ -83,7 +83,7 @@ function render() {
         }).join('');
     }
 
-    // 3. Render Category Manager (In Stock View)
+    // 4. Category Manager Content
     const catManager = document.getElementById('category-manager-list');
     if(catManager) {
         catManager.innerHTML = categories.filter(c => c !== "All").map((c, idx) => `
@@ -92,13 +92,13 @@ function render() {
                     <button onclick="moveCat(${idx+1}, -1)" class="p-1 text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-3 h-3"></i></button>
                     <button onclick="moveCat(${idx+1}, 1)" class="p-1 text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-3 h-3"></i></button>
                 </div>
-                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none">
+                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none px-2">
                 <button onclick="removeCat(${idx+1})" class="p-2 text-red-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>
         `).join('');
     }
 
-    // 4. Render Inventory Items
+    // 5. Inventory Items List
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
@@ -110,7 +110,7 @@ function render() {
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
-                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold">
+                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold" placeholder="URL">
                     </div>
                     <div class="flex-1 min-w-0">
                         <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block">
@@ -124,11 +124,18 @@ function render() {
                         <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                     </div>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-400'}">None</button>
-                    ${categories.filter(c => c !== "All").map(c => `
-                        <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
-                    `).join('')}
+
+                <div class="space-y-2">
+                    <div class="flex items-center gap-2 px-1">
+                        <i data-lucide="tag" class="w-3 h-3 text-slate-300"></i>
+                        <span class="text-[9px] font-black uppercase text-slate-400 tracking-widest">Category: <span class="${p.cat ? 'text-blue-600' : 'text-slate-300'}">${p.cat || 'NONE'}</span></span>
+                    </div>
+                    <div class="flex flex-wrap gap-2">
+                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}">None</button>
+                        ${categories.filter(c => c !== "All").map(c => `
+                            <button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white shadow-sm' : 'bg-slate-50 text-slate-400 border border-slate-100'}">${c}</button>
+                        `).join('')}
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -137,20 +144,22 @@ function render() {
     lucide.createIcons();
 }
 
-// --- CATEGORY ACTIONS ---
+// --- CATEGORY FUNCTIONS ---
+window.toggleCategoryManager = () => {
+    document.getElementById('category-manager-card').classList.toggle('manager-expanded');
+};
 window.addCat = () => { 
-    const name = prompt("Enter new category name:"); 
+    const name = prompt("New Category Name:"); 
     if(name) { categories.push(name); pushData(); } 
 };
 window.editCatName = (idx, newName) => {
     const oldName = categories[idx];
     categories[idx] = newName;
-    // Update all products using the old category name
     products.forEach(p => { if(p.cat === oldName) p.cat = newName; });
     pushData();
 };
 window.removeCat = (idx) => {
-    if(confirm(`Delete category "${categories[idx]}"? Products will become 'None'.`)) {
+    if(confirm(`Delete "${categories[idx]}"?`)) {
         const oldName = categories[idx];
         categories.splice(idx, 1);
         products.forEach(p => { if(p.cat === oldName) p.cat = ""; });
@@ -159,22 +168,14 @@ window.removeCat = (idx) => {
 };
 window.moveCat = (idx, step) => {
     const newIdx = idx + step;
-    if(newIdx < 1 || newIdx >= categories.length) return; // index 0 is always "All"
+    if(newIdx < 1 || newIdx >= categories.length) return;
     const temp = categories[idx];
     categories[idx] = categories[newIdx];
     categories[newIdx] = temp;
     pushData();
 };
 
-// --- REST OF ACTIONS (Keep existing) ---
-window.moveItem = (index, step) => {
-    const newIndex = index + step;
-    if (newIndex < 0 || newIndex >= products.length) return;
-    const temp = products[index];
-    products[index] = products[newIndex];
-    products[newIndex] = temp;
-    pushData();
-};
+// --- PRODUCT & ORDER FUNCTIONS ---
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
@@ -184,12 +185,20 @@ window.handleProductTap = (e, id) => {
     if (entry) entry.qty++; else cart.push({...p, qty: 1});
     setTimeout(() => render(), 150); 
 };
-window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Item', price: 0, img: '', fav: false, cat: '' }); pushData(); };
+window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
 window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
+window.moveItem = (index, step) => {
+    const newIndex = index + step;
+    if (newIndex < 0 || newIndex >= products.length) return;
+    const temp = products[index];
+    products[index] = products[newIndex];
+    products[newIndex] = temp;
+    pushData();
+};
 
 window.checkoutToQueue = () => {
     if(!cart.length) return;
@@ -206,6 +215,7 @@ window.updateTag = (list, idx, val) => { if(list === 'queue') queue[idx].desc = 
 window.removeItemFromList = (list, idx) => { if(list === 'queue') queue.splice(idx, 1); else history.splice(idx, 1); pushData(); };
 window.toggleOrderExpand = idx => { document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded'); };
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); pushData(); };
+
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
@@ -220,6 +230,8 @@ window.toggleManageSection = sec => {
     bO.className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
     bS.className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
+
+// --- SYSTEM UTILS ---
 window.toggleSummary = () => {
     summaryEnabled = !summaryEnabled;
     const dot = document.getElementById('toggle-dot');
@@ -279,7 +291,7 @@ function renderPendingAndHistory() {
     }
     const hList = document.getElementById('history-list');
     if(hList) {
-        hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
+        hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">History</h2>` + history.map((h, idx) => `
             <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 shadow-sm" onclick="toggleOrderExpand(${idx})">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
