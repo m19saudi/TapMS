@@ -86,7 +86,9 @@ function render() {
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 active:scale-95 transition-all">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
                     </div>
                 </div>
                 <div class="space-y-2">
@@ -131,7 +133,7 @@ function renderCart() {
         <div class="flex items-center justify-between border-b border-slate-50 py-3">
             <div class="flex items-center gap-3">
                 <img src="${item.img}" class="w-10 h-10 rounded-xl object-cover bg-slate-100">
-                <div><p class="font-bold text-sm truncate w-32">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
+                <div><p class="font-bold text-sm truncate w-32 uppercase">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
             </div>
             <div class="flex items-center gap-3 bg-slate-50 p-1 rounded-xl">
                 <button onclick="updateCartQty(${idx}, -1)" class="w-7 h-7 flex items-center justify-center"><i data-lucide="minus" class="w-3 h-3"></i></button>
@@ -165,7 +167,7 @@ function renderPendingAndHistory() {
                 <div class="flex flex-wrap gap-2 mb-4">${ord.items.map(i => `<div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}<div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div></div>`).join('')}</div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
-                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </div>`).join('');
     }
@@ -180,7 +182,7 @@ function renderPendingAndHistory() {
                 <div class="order-detail">
                     <p class="text-[10px] text-slate-400 font-bold mb-3">${h.date}</p>
                     <div class="flex flex-wrap gap-2 mb-4">${h.items.map(i => `<span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}</div>
-                    <div class="flex gap-2"><button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button><button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+                    <div class="flex gap-2"><button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button><button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
                 </div>
             </div>`).join('');
     }
