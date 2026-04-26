@@ -26,10 +26,6 @@
         .rotate-icon { transition: transform 0.3s ease; }
         .manager-expanded .rotate-icon { transform: rotate(180deg); }
 
-        .item-tag-hover { position: relative; cursor: help; }
-        .item-preview-popup { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: white; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: none; z-index: 100; padding: 3px; border: 1px solid #e2e8f0; pointer-events: none; }
-        .item-tag-hover:hover .item-preview-popup { display: block; }
-
         @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
         .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
@@ -68,18 +64,15 @@
                     <span class="font-bold text-sm uppercase">Make Backup</span>
                     <i data-lucide="download" class="w-5 h-5"></i>
                 </button>
-
                 <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Import Backup</span>
                     <i data-lucide="upload-cloud" class="w-5 h-5"></i>
                 </button>
                 <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
-
                 <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Reset Orders</span>
                     <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                 </button>
-
                 <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Wipe All Data</span>
                     <i data-lucide="trash-2" class="w-5 h-5"></i>
@@ -105,18 +98,14 @@
 
     <nav class="glass border-b border-slate-200 px-6 py-4 flex justify-between items-center z-50 shrink-0">
         <div class="flex items-center gap-4">
+            <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
             <button onclick="openCart()" class="bg-blue-600 p-2.5 rounded-full shadow-lg active:scale-95 transition-all">
                 <i data-lucide="shopping-bag" class="w-5 h-5 text-white"></i>
             </button>
-            <div class="flex items-center gap-2">
-                <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
-                <div id="status-dot" class="w-3 h-3 rounded-full dot-connecting animate-pulse"></div>
-            </div>
+            <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
         </div>
         <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all">
-                <i data-lucide="search" class="w-6 h-6 text-slate-500"></i>
-             </button>
+             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all"><i data-lucide="search" class="w-6 h-6 text-slate-500"></i></button>
              <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
                 <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
@@ -161,7 +150,7 @@
                         <i data-lucide="chevron-down" class="w-5 h-5 text-slate-400 rotate-icon"></i>
                     </div>
                     <div class="manager-content">
-                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg">+ New Category</button></div>
+                        <div class="flex justify-end mb-4"><button onclick="addCat()" class="bg-blue-600 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">+ New Category</button></div>
                         <div id="category-manager-list" class="grid grid-cols-1 gap-2"></div>
                     </div>
                 </div>
