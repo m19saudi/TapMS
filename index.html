@@ -19,12 +19,18 @@
         .active-tab { color: #2563eb; background: #eff6ff; border-radius: 20px; }
         .product-image { object-fit: cover; width: 100%; height: 100%; border-radius: 1.5rem; }
         main { flex: 1; overflow-y: auto; padding-bottom: 280px !important; -webkit-overflow-scrolling: touch; }
+        
+        /* Category Bar Fixes */
+        #cat-bar { display: flex; justify-content: flex-start; align-items: center; overflow-x: auto; scroll-behavior: smooth; }
+        #cat-bar button { flex-shrink: 0; }
+
         @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
         .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
         .dot-connecting { background: #fbbf24; box-shadow: 0 0 8px rgba(251, 191, 36, 0.6); }
         .order-detail { max-height: 0; opacity: 0; transition: all 0.3s ease-in-out; overflow: hidden; }
         .order-expanded .order-detail { max-height: 500px; opacity: 1; margin-top: 1rem; }
+        
         #summary-overlay, #backup-overlay { display: none; position: fixed; inset: 0; z-index: 200; background: rgba(15, 23, 42, 0.4); backdrop-filter: blur(10px); align-items: center; justify-content: center; padding: 20px; }
         #summary-overlay.active, #backup-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
@@ -108,14 +114,27 @@
                 </button>
                 <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
                 
+                <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-black text-sm uppercase tracking-tight">Category Manager</h3>
+                        <button onclick="addCat()" class="text-blue-600 font-black text-[10px] uppercase">+ New Cat</button>
+                    </div>
+                    <div id="category-manager-list" class="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto no-scrollbar">
+                        </div>
+                </div>
+
                 <div class="flex items-center justify-between gap-3 px-2">
-                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-200 shadow-sm flex-1">
+                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 shadow-sm flex-1">
                         <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
                         <span class="text-[10px] font-black uppercase text-slate-500">Summary: OFF</span>
                     </button>
                     <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1">+ Add Item</button>
                 </div>
-                <div id="inventory-list" class="space-y-3"></div>
+
+                <div class="border-t border-slate-100 pt-6">
+                    <h3 class="font-black text-sm uppercase tracking-tight mb-4 px-2">Products</h3>
+                    <div id="inventory-list" class="space-y-3"></div>
+                </div>
             </div>
         </div>
     </main>
