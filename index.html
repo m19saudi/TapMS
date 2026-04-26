@@ -27,7 +27,6 @@
         #summary-overlay.active, #backup-overlay.active, #cart-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
 
-        /* Animation for product taps */
         @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.95); } 100% { transform: scale(1); } }
         .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
     </style>
@@ -98,6 +97,28 @@
             <span class="text-[10px] font-black uppercase">Manage</span>
         </button>
     </nav>
+
+    <div id="backup-overlay">
+        <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
+            <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
+            <div class="grid gap-3">
+                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Make Backup</span>
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                </button>
+                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Import Backup</span>
+                    <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                </button>
+                <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
+                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Wipe All Data</span>
+                    <i data-lucide="trash-2" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <button onclick="closeBackupModal()" class="mt-6 text-slate-400 font-bold text-[10px] uppercase">Cancel</button>
+        </div>
+    </div>
 
     <script src="script.js"></script>
 </body>
