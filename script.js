@@ -49,7 +49,24 @@ function render() {
             <button onclick="setCategory('${c}')" class="px-5 py-2 rounded-full text-[10px] font-black uppercase flex-shrink-0 transition-all ${currentCat === c ? 'bg-blue-600 text-white shadow-md' : 'bg-white text-slate-400 border border-slate-100'}">${c}</button>
         `).join('');
     }
-
+const summaryBtn = document.getElementById('summary-toggle-ui');
+if (summaryBtn) {
+    const dot = document.getElementById('toggle-dot');
+    const label = summaryBtn.querySelector('span');
+    
+    // Update colors and text based on the current state
+    if (summaryEnabled) {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]";
+        label.innerText = "Summary: ON";
+        label.className = "text-[10px] font-black uppercase text-blue-600";
+        summaryBtn.className = "flex items-center gap-3 bg-blue-50 px-4 py-4 rounded-2xl border border-blue-100 shadow-sm flex-1 active:scale-95 transition-all";
+    } else {
+        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
+        label.innerText = "Summary: OFF";
+        label.className = "text-[10px] font-black uppercase text-slate-500";
+        summaryBtn.className = "flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 shadow-sm flex-1 active:scale-95 transition-all";
+    }
+}
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
