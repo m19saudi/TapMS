@@ -26,6 +26,10 @@
         .rotate-icon { transition: transform 0.3s ease; }
         .manager-expanded .rotate-icon { transform: rotate(180deg); }
 
+        .item-tag-hover { position: relative; cursor: help; }
+        .item-preview-popup { position: absolute; bottom: 120%; left: 50%; transform: translateX(-50%); width: 70px; height: 70px; background: white; border-radius: 12px; box-shadow: 0 10px 20px rgba(0,0,0,0.15); display: none; z-index: 100; padding: 3px; border: 1px solid #e2e8f0; pointer-events: none; }
+        .item-tag-hover:hover .item-preview-popup { display: block; }
+
         @keyframes tap-pop { 0% { transform: scale(1); } 30% { transform: scale(0.9); } 100% { transform: scale(1); } }
         .tap-feedback { animation: tap-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
         .dot-connected { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
@@ -35,10 +39,9 @@
         #cart-overlay { align-items: flex-end; padding: 0; }
         #summary-overlay.active, #backup-overlay.active, #cart-overlay.active { display: flex; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
-
-        .bulk-check { width: 22px; height: 22px; border: 2px solid #cbd5e1; border-radius: 8px; cursor: pointer; appearance: none; transition: all 0.2s; position: relative; background: white; }
-        .bulk-check:checked { background: #2563eb; border-color: #2563eb; }
-        .bulk-check:checked::after { content: '✓'; color: white; font-size: 14px; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-weight: 800; }
+        
+        .bulk-checkbox { width: 20px; height: 20px; border-radius: 6px; border: 2px solid #cbd5e1; cursor: pointer; transition: all 0.2s; }
+        .bulk-checkbox:checked { background-color: #2563eb; border-color: #2563eb; }
     </style>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -61,21 +64,21 @@
         <div class="bg-white w-full max-w-sm rounded-[3rem] p-8 shadow-2xl text-center">
             <h2 class="font-black text-xl mb-6 uppercase text-slate-400">System Tools</h2>
             <div class="grid gap-3">
-                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600">
+                <button onclick="executeExport()" class="flex items-center justify-between bg-blue-50 p-5 rounded-2xl text-blue-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Make Backup</span>
                     <i data-lucide="download" class="w-5 h-5"></i>
                 </button>
-                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600">
+                <button onclick="document.getElementById('db-import-input').click()" class="flex items-center justify-between bg-emerald-50 p-5 rounded-2xl text-emerald-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Import Backup</span>
                     <i data-lucide="upload-cloud" class="w-5 h-5"></i>
                 </button>
                 <input type="file" id="db-import-input" class="hidden" accept=".json" onchange="importDatabase(event)">
-                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600">
+                <button onclick="resetOnlyOrders()" class="flex items-center justify-between bg-amber-50 p-5 rounded-2xl text-amber-600 active:scale-95 transition-all">
                     <span class="font-bold text-sm uppercase">Reset Orders</span>
                     <i data-lucide="refresh-ccw" class="w-5 h-5"></i>
                 </button>
-                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600">
-                    <span class="font-bold text-sm uppercase">Wipe All</span>
+                <button onclick="confirmWipe()" class="flex items-center justify-between bg-red-50 p-5 rounded-2xl text-red-600 active:scale-95 transition-all">
+                    <span class="font-bold text-sm uppercase">Wipe All Data</span>
                     <i data-lucide="trash-2" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -106,10 +109,10 @@
             <h1 class="font-extrabold text-xl tracking-tight select-none">TapMS</h1>
         </div>
         <div class="flex items-center gap-2">
-             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl">
+             <button onclick="toggleSearch()" class="p-2.5 bg-slate-100 rounded-2xl active:scale-90 transition-all">
                 <i data-lucide="search" class="w-6 h-6 text-slate-500"></i>
              </button>
-             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl shadow-md">
+             <button onclick="checkoutToQueue()" class="relative p-2.5 bg-blue-600 rounded-2xl active:scale-95 shadow-md">
                 <i data-lucide="send" class="w-6 h-6 text-white"></i>
                 <div id="cart-count-top" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white">0</div>
              </button>
@@ -140,11 +143,11 @@
             </div>
 
             <div id="sec-stock" class="hidden space-y-6">
-                <div class="grid grid-cols-2 gap-3">
-                    <button onclick="openBackupModal()" class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm">
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="openBackupModal()" class="flex items-center justify-center gap-2 bg-white border border-slate-200 py-4 rounded-2xl text-[10px] font-black uppercase text-slate-600 shadow-sm active:scale-95 transition-all">
                         <i data-lucide="database" class="w-4 h-4"></i> Tools
                     </button>
-                    <button onclick="document.getElementById('csv-input').click()" class="flex items-center justify-center gap-2 bg-emerald-50 border border-emerald-100 py-4 rounded-2xl text-[10px] font-black uppercase text-emerald-600 shadow-sm">
+                    <button onclick="document.getElementById('csv-input').click()" class="flex items-center justify-center gap-2 bg-emerald-50 border border-emerald-100 py-4 rounded-2xl text-[10px] font-black uppercase text-emerald-600 shadow-sm active:scale-95 transition-all">
                         <i data-lucide="file-text" class="w-4 h-4"></i> Import CSV
                     </button>
                     <input type="file" id="csv-input" class="hidden" accept=".csv" onchange="importCSV(event)">
@@ -165,16 +168,16 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-3">
-                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 px-4 py-4 rounded-2xl border shadow-sm flex-1">
-                        <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full"></div>
-                        <span class="text-[10px] font-black uppercase"></span>
+                    <button onclick="toggleSummary()" id="summary-toggle-ui" class="flex items-center gap-3 bg-white px-4 py-4 rounded-2xl border border-slate-100 shadow-sm flex-1 active:scale-95 transition-all">
+                        <div id="toggle-dot" class="w-2.5 h-2.5 rounded-full bg-slate-300"></div>
+                        <span class="text-[10px] font-black uppercase text-slate-500">Summary: OFF</span>
                     </button>
-                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1">+ Add Product</button>
+                    <button onclick="addItem()" class="bg-slate-900 text-white px-6 py-4 rounded-2xl text-[10px] font-black uppercase shadow-lg flex-1 active:scale-95 transition-all">+ Add Product</button>
                 </div>
 
-                <div id="bulk-bar" class="hidden bg-blue-600 p-5 rounded-[2rem] flex items-center justify-between shadow-xl">
-                    <span id="selected-count" class="text-white font-black text-[10px] uppercase">0 Selected</span>
-                    <button onclick="deleteSelected()" class="bg-red-500 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg">Delete Selected</button>
+                <div id="bulk-bar" class="hidden bg-blue-600 p-4 rounded-2xl flex items-center justify-between animate-in fade-in slide-in-from-top-2">
+                    <span id="selected-count" class="text-white font-black text-[10px] uppercase">0 Items Selected</span>
+                    <button onclick="deleteSelected()" class="bg-red-500 text-white px-4 py-2 rounded-xl font-black text-[10px] uppercase shadow-lg active:scale-95 transition-all">Delete Selected</button>
                 </div>
 
                 <div id="inventory-list" class="space-y-3 border-t border-slate-100 pt-6"></div>
@@ -183,9 +186,9 @@
     </main>
 
     <nav class="glass border-t border-slate-200 px-6 pt-4 pb-12 flex justify-around shrink-0 z-50">
-        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 transition-all">
+        <button id="btn-cashier" onclick="showView('cashier')" class="flex flex-col items-center gap-2 p-3 active-tab transition-all">
             <i data-lucide="shopping-cart" class="w-7 h-7"></i>
-            <span class="text-[10px] font-black uppercase">Cashier</span>
+            <span class="text-[10px] font-black uppercase">Store</span>
         </button>
         <button id="btn-manage" onclick="showView('manage')" class="relative flex flex-col items-center gap-2 p-3 text-slate-400 transition-all">
             <div class="relative">
