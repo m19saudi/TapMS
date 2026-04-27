@@ -3,6 +3,7 @@ let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
+let selectedIds = new Set(); // Stores IDs for bulk delete
 
 async function initTapMS() {
     try {
@@ -67,11 +68,19 @@ function render() {
         }).join('');
     }
 
+    // Bulk delete UI update
+    const bulkBar = document.getElementById('bulk-bar');
+    if(bulkBar) {
+        bulkBar.classList.toggle('hidden', selectedIds.size === 0);
+        document.getElementById('selected-count').innerText = `${selectedIds.size} Items Selected`;
+    }
+
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
-            <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm">
+            <div class="bg-white p-5 rounded-[2.5rem] border ${selectedIds.has(p.id) ? 'border-blue-500 bg-blue-50/30' : 'border-slate-100'} space-y-4 shadow-sm">
                 <div class="flex items-center gap-4">
+                    <input type="checkbox" ${selectedIds.has(p.id) ? 'checked' : ''} onchange="toggleSelectProduct(${p.id})" class="bulk-checkbox">
                     <div class="flex flex-col gap-1">
                         <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
                         <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
@@ -92,7 +101,6 @@ function render() {
                     </div>
                 </div>
                 <div class="space-y-2">
-                    <div class="flex items-center gap-2 px-1"><i data-lucide="tag" class="w-3 h-3 text-slate-300"></i><span class="text-[9px] font-black uppercase text-slate-400">Category: <span class="${p.cat ? 'text-blue-600' : 'text-slate-300'}">${p.cat || 'NONE'}</span></span></div>
                     <div class="flex flex-wrap gap-2">
                         <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}">None</button>
                         ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
@@ -115,6 +123,41 @@ function render() {
     lucide.createIcons();
 }
 
+// --- NEW ACTIONS ---
+window.importCSV = (e) => {
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = (event) => {
+        const text = event.target.result;
+        const rows = text.split('\n').slice(1).filter(row => row.trim() !== '');
+        const newProducts = rows.map(row => {
+            const [name, price, img, cat] = row.split(',').map(item => item.trim());
+            return { id: Date.now() + Math.random(), name: name || 'New Product', price: parseFloat(price) || 0, img: img || '', fav: false, cat: cat || '' };
+        });
+        products = [...newProducts, ...products];
+        pushData();
+        alert(`Imported ${newProducts.length} items!`);
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+};
+
+window.toggleSelectProduct = (id) => {
+    if (selectedIds.has(id)) selectedIds.delete(id);
+    else selectedIds.add(id);
+    render();
+};
+
+window.deleteSelected = () => {
+    if (selectedIds.size === 0) return;
+    if (confirm(`Delete ${selectedIds.size} products?`)) {
+        products = products.filter(p => !selectedIds.has(p.id));
+        selectedIds.clear();
+        pushData();
+    }
+};
+
+// --- EXISTING RESTORED FUNCTIONS ---
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
@@ -179,24 +222,15 @@ function renderPendingAndHistory() {
                     <div class="flex items-center gap-3"><span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span><input type="text" value="${h.desc || ''}" onchange="event.stopPropagation(); updateTag('history', ${idx}, this.value)" class="font-bold text-slate-700 text-sm bg-transparent outline-none"></div>
                     <div class="flex items-center gap-3"><p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p><button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button></div>
                 </div>
-                <div class="order-detail">
-                    <p class="text-[10px] text-slate-400 font-bold mb-3">${h.date}</p>
-                    <div class="flex flex-wrap gap-2 mb-4">${h.items.map(i => `<span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}</div>
-                    <div class="flex gap-2"><button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button><button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
-                </div>
             </div>`).join('');
     }
     
     const tq = cart.reduce((s, i) => s + i.qty, 0);
     const tb = document.getElementById('cart-count-top');
-    if(tb) { 
-        tb.innerText = tq; 
-        tb.classList.toggle('hidden', tq === 0); 
-    }
+    if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
 
 window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
-
 window.importDatabase = (e) => {
     const r = new FileReader();
     r.onload = (ev) => {
@@ -205,7 +239,7 @@ window.importDatabase = (e) => {
             products = data.products || [];
             categories = data.categories || ["All"];
             pushData();
-            alert("Restored Successfully!");
+            alert("Restored!");
             closeBackupModal();
         } catch { alert("Invalid File!"); }
     };
@@ -215,12 +249,8 @@ window.importDatabase = (e) => {
 
 window.confirmWipe = () => { if (confirm("Wipe ALL?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
 window.resetOnlyOrders = () => { if(confirm("Reset orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
-
-window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded');
-window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
-window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
 window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
@@ -247,7 +277,7 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-window.toggleSummary = () => { summaryEnabled = !summaryEnabled; const dot = document.getElementById('toggle-dot'); const label = document.getElementById('summary-toggle-ui').querySelector('span'); dot.className = summaryEnabled ? "w-2.5 h-2.5 rounded-full bg-blue-600" : "w-2.5 h-2.5 rounded-full bg-slate-300"; label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF"; };
+window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); };
 function openSummary(ord) { document.getElementById('sum-id').innerText = `#${ord.orderNum}`; document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`; document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join(''); document.getElementById('summary-overlay').classList.add('active'); }
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
