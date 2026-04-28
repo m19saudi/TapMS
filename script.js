@@ -92,7 +92,6 @@ function render() {
                     </div>
                 </div>
                 <div class="space-y-2">
-                    <div class="flex items-center gap-2 px-1"><i data-lucide="tag" class="w-3 h-3 text-slate-300"></i><span class="text-[9px] font-black uppercase text-slate-400">Category: <span class="${p.cat ? 'text-blue-600' : 'text-slate-300'}">${p.cat || 'NONE'}</span></span></div>
                     <div class="flex flex-wrap gap-2">
                         <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}">None</button>
                         ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
@@ -159,44 +158,52 @@ function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
     if(pList) {
         pList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
-            <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100">
+            <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100 mb-3">
                 <div class="bg-white px-3 py-2 rounded-xl flex items-center gap-2 mb-3">
                     <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
                     <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
-                <div class="flex flex-wrap gap-2 mb-4">${ord.items.map(i => `<div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}<div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div></div>`).join('')}</div>
+                <div class="flex flex-wrap gap-2 mb-4">${ord.items.map(i => `<div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}</div>`).join('')}</div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
                     <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </div>`).join('');
     }
+
     const hList = document.getElementById('history-list');
     if(hList) {
         hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
-            <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3" onclick="toggleOrderExpand(${idx})">
+            <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 cursor-pointer" onclick="toggleOrderExpand(${idx})">
                 <div class="flex justify-between items-center">
-                    <div class="flex items-center gap-3"><span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span><input type="text" value="${h.desc || ''}" onchange="event.stopPropagation(); updateTag('history', ${idx}, this.value)" class="font-bold text-slate-700 text-sm bg-transparent outline-none"></div>
-                    <div class="flex items-center gap-3"><p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p><button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button></div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span>
+                        <input type="text" value="${h.desc || ''}" onclick="event.stopPropagation();" onchange="updateTag('history', ${idx}, this.value)" class="font-bold text-slate-700 text-sm bg-transparent outline-none">
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p>
+                        <button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                    </div>
                 </div>
                 <div class="order-detail">
-                    <p class="text-[10px] text-slate-400 font-bold mb-3">${h.date}</p>
-                    <div class="flex flex-wrap gap-2 mb-4">${h.items.map(i => `<span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg">${i.name} x${i.qty}</span>`).join('')}</div>
-                    <div class="flex gap-2"><button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button><button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>
+                    <p class="text-[10px] text-slate-400 font-bold mb-3 mt-3">${h.date || ''}</p>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        ${h.items.map(i => `<span class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">${i.name} x${i.qty}</span>`).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button>
+                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                 </div>
             </div>`).join('');
     }
     
     const tq = cart.reduce((s, i) => s + i.qty, 0);
     const tb = document.getElementById('cart-count-top');
-    if(tb) { 
-        tb.innerText = tq; 
-        tb.classList.toggle('hidden', tq === 0); 
-    }
+    if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
 
 window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
-
 window.importDatabase = (e) => {
     const r = new FileReader();
     r.onload = (ev) => {
@@ -205,7 +212,7 @@ window.importDatabase = (e) => {
             products = data.products || [];
             categories = data.categories || ["All"];
             pushData();
-            alert("Restored Successfully!");
+            alert("Restored!");
             closeBackupModal();
         } catch { alert("Invalid File!"); }
     };
@@ -213,15 +220,13 @@ window.importDatabase = (e) => {
     e.target.value = '';
 };
 
-window.confirmWipe = () => { if (confirm("Wipe ALL?")) { db.ref('/').set({ products: [], queue: [], history: [], orderCounter: 0, categories: ["All"] }); location.reload(); } };
-window.resetOnlyOrders = () => { if(confirm("Reset orders?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
-
 window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('order-expanded');
 window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
 window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
 window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
 window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
+
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
@@ -229,12 +234,14 @@ window.showView = v => {
     document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
     document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
 };
+
 window.toggleManageSection = sec => {
     document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
     document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
     document.getElementById('sub-btn-orders').className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
     document.getElementById('sub-btn-stock').className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
+
 window.toggleCategoryManager = () => document.getElementById('category-manager-card').classList.toggle('manager-expanded');
 window.addCat = () => { const n = prompt("New category:"); if(n) { categories.push(n); pushData(); } };
 window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
@@ -247,8 +254,15 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-window.toggleSummary = () => { summaryEnabled = !summaryEnabled; const dot = document.getElementById('toggle-dot'); const label = document.getElementById('summary-toggle-ui').querySelector('span'); dot.className = summaryEnabled ? "w-2.5 h-2.5 rounded-full bg-blue-600" : "w-2.5 h-2.5 rounded-full bg-slate-300"; label.innerText = summaryEnabled ? "Summary: ON" : "Summary: OFF"; };
-function openSummary(ord) { document.getElementById('sum-id').innerText = `#${ord.orderNum}`; document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`; document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join(''); document.getElementById('summary-overlay').classList.add('active'); }
+window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); };
+
+function openSummary(ord) { 
+    document.getElementById('sum-id').innerText = `#${ord.orderNum}`; 
+    document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`; 
+    document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join(''); 
+    document.getElementById('summary-overlay').classList.add('active'); 
+}
+
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
