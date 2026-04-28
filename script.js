@@ -302,4 +302,68 @@ window.toggleSearch = () => { const s = document.getElementById('search-containe
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
 
+// --- SYSTEM ADMIN FUNCTIONS ---
+
+// 1. Wipe All Data (Atomic Reset)
+window.confirmWipe = () => {
+    if (confirm("🚨 CRITICAL: This will permanently delete ALL products, categories, and order history. Proceed?")) {
+        products = [];
+        queue = [];
+        history = [];
+        categories = ["All"];
+        orderCounter = 0;
+        pushData(); // Syncs empty state to Firebase
+        alert("System has been completely wiped.");
+        closeBackupModal();
+    }
+};
+
+// 2. Reset Orders Only (Clear History & Pending)
+window.resetOnlyOrders = () => {
+    if (confirm("Clear all pending and past orders? Your product list will remain safe.")) {
+        queue = [];
+        history = [];
+        orderCounter = 0;
+        pushData(); // Syncs cleared orders to Firebase
+        alert("Order history cleared.");
+        closeBackupModal();
+    }
+};
+
+// 3. Import CSV (Bulk Product Upload)
+window.importCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const rows = text.split('\n');
+        
+        // Skip header if it exists
+        const startIdx = rows[0].toLowerCase().includes('name') ? 1 : 0;
+
+        for (let i = startIdx; i < rows.length; i++) {
+            const row = rows[i].trim();
+            if (!row) continue;
+
+            const cols = row.split(',');
+            if (cols.length >= 2) {
+                products.push({
+                    id: Date.now() + Math.random(),
+                    name: cols[0].trim(),
+                    price: parseFloat(cols[1]) || 0,
+                    img: cols[2] ? cols[2].trim() : "",
+                    cat: cols[3] ? cols[3].trim() : "",
+                    fav: false
+                });
+            }
+        }
+        pushData(); // Save imported products to Firebase
+        alert("Products imported successfully!");
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Clear input for next use
+};
+
 initTapMS();
