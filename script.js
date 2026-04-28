@@ -3,6 +3,7 @@ let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
+let selectedItems = new Set();
 
 async function initTapMS() {
     try {
@@ -42,6 +43,7 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
+    // Category Bar Rendering
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
@@ -49,6 +51,7 @@ function render() {
         `).join('');
     }
 
+    // Cashier View Rendering
     const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
@@ -67,14 +70,16 @@ function render() {
         }).join('');
     }
 
+    // Inventory List Rendering (Multi-Select & Reorder Handle)
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
         inventoryList.innerHTML = products.map((p, idx) => `
-            <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm">
+            <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm relative">
+                <input type="checkbox" class="bulk-checkbox absolute top-4 right-4" onchange="toggleProductSelection(${p.id})" ${selectedItems.has(p.id) ? 'checked' : ''}>
                 <div class="flex items-center gap-4">
                     <div class="flex flex-col gap-1">
-                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
-                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
@@ -84,78 +89,22 @@ function render() {
                         <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block">
                         <div class="flex items-center mt-1"><span class="text-blue-600 font-black text-[11px] mr-1">$</span><input type="number" step="0.01" value="${p.price}" onchange="editItem(${p.id}, 'price', this.value)" class="w-24 font-black text-sm bg-transparent outline-none text-blue-600"></div>
                     </div>
-                    <div class="flex items-center gap-2">
+                    <div class="flex items-center gap-2 mr-8">
                         <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 active:scale-95 transition-all">
-                            <i data-lucide="trash-2" class="w-5 h-5"></i>
-                        </button>
                     </div>
                 </div>
-                <div class="space-y-2">
-                    <div class="flex flex-wrap gap-2">
-                        <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}">None</button>
-                        ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
-                    </div>
+                <div class="flex flex-wrap gap-2">
+                    ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
                 </div>
-            </div>`).join('');
-    }
-
-    const catManager = document.getElementById('category-manager-list');
-    if(catManager) {
-        catManager.innerHTML = categories.filter(c => c !== "All").map((c, idx) => `
-            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
-                <div class="flex flex-col"><button onclick="moveCat(${idx+1}, -1)" class="p-1 text-slate-400"><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="moveCat(${idx+1}, 1)" class="p-1 text-slate-400"><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div>
-                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none px-2">
-                <button onclick="removeCat(${idx+1})" class="p-2 text-red-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>`).join('');
     }
 
     renderPendingAndHistory();
+    updateBulkBar();
     lucide.createIcons();
 }
 
-window.handleProductTap = (e, id) => {
-    if (e) e.preventDefault(); 
-    const el = document.getElementById(`prod-${id}`);
-    if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
-    const p = products.find(x => x.id === id);
-    const entry = cart.find(i => i.id === id);
-    if (entry) entry.qty++; else cart.push({...p, qty: 1});
-    setTimeout(() => render(), 150); 
-};
-
-window.openCart = () => { if(cart.length) { document.getElementById('cart-overlay').classList.add('active'); renderCart(); } };
-window.closeCart = () => document.getElementById('cart-overlay').classList.remove('active');
-
-function renderCart() {
-    const list = document.getElementById('cart-items-list');
-    list.innerHTML = cart.map((item, idx) => `
-        <div class="flex items-center justify-between border-b border-slate-50 py-3">
-            <div class="flex items-center gap-3">
-                <img src="${item.img}" class="w-10 h-10 rounded-xl object-cover bg-slate-100">
-                <div><p class="font-bold text-sm truncate w-32 uppercase">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
-            </div>
-            <div class="flex items-center gap-3 bg-slate-50 p-1 rounded-xl">
-                <button onclick="updateCartQty(${idx}, -1)" class="w-7 h-7 flex items-center justify-center"><i data-lucide="minus" class="w-3 h-3"></i></button>
-                <span class="font-black text-xs w-4 text-center">${item.qty}</span>
-                <button onclick="updateCartQty(${idx}, 1)" class="w-7 h-7 flex items-center justify-center"><i data-lucide="plus" class="w-3 h-3"></i></button>
-            </div>
-        </div>`).join('');
-    lucide.createIcons();
-}
-
-window.updateCartQty = (idx, d) => { cart[idx].qty += d; if(cart[idx].qty <= 0) cart.splice(idx, 1); if(!cart.length) closeCart(); render(); renderCart(); };
-
-window.checkoutToQueue = () => {
-    if(!cart.length) return;
-    orderCounter++;
-    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-    const ord = { orderNum: orderCounter, items: [...cart], total, desc: "", date: new Date().toLocaleTimeString() };
-    queue.unshift(ord);
-    if(summaryEnabled) openSummary(ord);
-    cart = []; render(); pushData();
-};
-
+// --- HISTORY & PENDING ---
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
     if(pList) {
@@ -175,7 +124,7 @@ function renderPendingAndHistory() {
                 </div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
-                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </div>`).join('');
     }
@@ -191,13 +140,12 @@ function renderPendingAndHistory() {
                     </div>
                     <div class="flex items-center gap-3">
                         <p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p>
-                        <button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-blue-600 transition-colors">
+                        <button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-blue-600">
                             <i data-lucide="refresh-cw" class="w-4 h-4"></i>
                         </button>
                         <i data-lucide="chevron-down" class="w-4 h-4 text-slate-300 rotate-icon"></i>
                     </div>
                 </div>
-                
                 <div class="manager-content">
                     <p class="text-[10px] text-slate-400 font-bold mb-3 mt-2">${h.date || ''}</p>
                     <div class="flex flex-wrap gap-2 mb-4">
@@ -209,161 +157,134 @@ function renderPendingAndHistory() {
                         `).join('')}
                     </div>
                     <div class="flex gap-2">
-                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px] active:scale-95 transition-all">Edit Order</button>
-                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px]">Edit Order</button>
+                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
                 </div>
             </div>`).join('');
     }
-    
-    const tq = cart.reduce((s, i) => s + i.qty, 0);
-    const tb = document.getElementById('cart-count-top');
-    if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
 
-window.toggleOrderExpand = idx => {
-    const card = document.getElementById(`hist-card-${idx}`);
-    card.classList.toggle('manager-expanded');
+// --- ACTIONS & TOOLS ---
+window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('manager-expanded');
+
+window.toggleProductSelection = (id) => {
+    if (selectedItems.has(id)) selectedItems.delete(id);
+    else selectedItems.add(id);
+    updateBulkBar();
 };
 
-window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
-window.importDatabase = (e) => {
-    const r = new FileReader();
-    r.onload = (ev) => {
-        try {
-            const data = JSON.parse(ev.target.result);
-            products = data.products || [];
-            categories = data.categories || ["All"];
-            pushData();
-            alert("Restored!");
-            closeBackupModal();
-        } catch { alert("Invalid File!"); }
+function updateBulkBar() {
+    const bar = document.getElementById('bulk-bar');
+    if(bar) {
+        bar.classList.toggle('hidden', selectedItems.size === 0);
+        document.getElementById('selected-count').innerText = `${selectedItems.size} Items Selected`;
+    }
+}
+
+window.deleteSelected = () => {
+    if (confirm(`Delete ${selectedItems.size} products?`)) {
+        products = products.filter(p => !selectedItems.has(p.id));
+        selectedItems.clear();
+        pushData();
+    }
+};
+
+window.toggleSummary = () => {
+    summaryEnabled = !summaryEnabled;
+    const btn = document.getElementById('summary-toggle-ui');
+    const dot = document.getElementById('toggle-dot');
+    btn.querySelector('span').innerText = `Summary: ${summaryEnabled ? 'ON' : 'OFF'}`;
+    btn.querySelector('span').className = `text-[10px] font-black uppercase ${summaryEnabled ? 'text-blue-600' : 'text-slate-500'}`;
+    dot.className = `w-2.5 h-2.5 rounded-full ${summaryEnabled ? 'bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]' : 'bg-slate-300'}`;
+};
+
+window.confirmWipe = () => {
+    if (confirm("🚨 WIPE ALL DATA? This cannot be undone.")) {
+        products = []; queue = []; history = []; categories = ["All"]; orderCounter = 0;
+        pushData(); closeBackupModal();
+    }
+};
+
+window.resetOnlyOrders = () => {
+    if (confirm("Clear all orders? Products will stay.")) {
+        queue = []; history = []; orderCounter = 0;
+        pushData(); closeBackupModal();
+    }
+};
+
+window.importCSV = (e) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const lines = ev.target.result.split('\n').slice(1);
+        lines.forEach(line => {
+            const [name, price, img, cat] = line.split(',');
+            if (name) products.push({ id: Date.now() + Math.random(), name: name.trim(), price: parseFloat(price) || 0, img: (img||'').trim(), cat: (cat||'').trim(), fav: false });
+        });
+        pushData(); alert("CSV Imported!");
     };
-    r.readAsText(e.target.files[0]);
-    e.target.value = '';
+    reader.readAsText(e.target.files[0]);
 };
 
-window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
-window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
-window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
-window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
-window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
+// --- CORE LOGIC (Cart/Move/Edit) ---
+window.handleProductTap = (e, id) => {
+    const p = products.find(x => x.id === id);
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty: 1});
+    render();
+};
 
+window.moveItem = (idx, step) => {
+    const nIdx = idx + step;
+    if (nIdx < 0 || nIdx >= products.length) return;
+    [products[idx], products[nIdx]] = [products[nIdx], products[idx]];
+    pushData();
+};
+
+window.checkoutToQueue = () => {
+    if(!cart.length) return;
+    orderCounter++;
+    const ord = { orderNum: orderCounter, items: [...cart], total: cart.reduce((s, i) => s + (i.price * i.qty), 0), desc: "", date: new Date().toLocaleString() };
+    queue.unshift(ord);
+    if(summaryEnabled) openSummary(ord);
+    cart = []; pushData();
+};
+
+function openSummary(ord) {
+    document.getElementById('sum-id').innerText = `#${ord.orderNum}`;
+    document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`;
+    document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join('');
+    document.getElementById('summary-overlay').classList.add('active');
+}
+
+// Boilerplate helpers
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab':'flex flex-col items-center gap-2 p-3 text-slate-400';
 };
-
 window.toggleManageSection = sec => {
     document.getElementById('sec-orders').classList.toggle('hidden', sec !== 'orders');
     document.getElementById('sec-stock').classList.toggle('hidden', sec !== 'stock');
     document.getElementById('sub-btn-orders').className = (sec === 'orders') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
     document.getElementById('sub-btn-stock').className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
-
 window.toggleCategoryManager = () => document.getElementById('category-manager-card').classList.toggle('manager-expanded');
-window.addCat = () => { const n = prompt("New category:"); if(n) { categories.push(n); pushData(); } };
-window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
-window.removeCat = i => { if(confirm("Delete?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
-window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
-window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
-window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
-window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
-window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); // Update the UI Button state
-    const btn = document.getElementById('summary-toggle-ui');
-    const dot = document.getElementById('toggle-dot');
-    
-    if (summaryEnabled) {
-        btn.querySelector('span').innerText = "Summary: ON";
-        btn.querySelector('span').classList.replace('text-slate-500', 'text-blue-600');
-        dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]";
-    } else {
-        btn.querySelector('span').innerText = "Summary: OFF";
-        btn.querySelector('span').classList.replace('text-blue-600', 'text-slate-500');
-        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
-    }};
-
-function openSummary(ord) { 
-    document.getElementById('sum-id').innerText = `#${ord.orderNum}`; 
-    document.getElementById('sum-total').innerText = `$${ord.total.toFixed(2)}`; 
-    document.getElementById('sum-details').innerHTML = ord.items.map(i => `<div class="flex justify-between text-[10px] font-bold"><span>${i.name} x${i.qty}</span><span>$${(i.price * i.qty).toFixed(2)}</span></div>`).join(''); 
-    document.getElementById('summary-overlay').classList.add('active'); 
-}
-
+window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.closeSummary = () => document.getElementById('summary-overlay').classList.remove('active');
-window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
-
-// --- SYSTEM ADMIN FUNCTIONS ---
-
-// 1. Wipe All Data (Atomic Reset)
-window.confirmWipe = () => {
-    if (confirm("🚨 CRITICAL: This will permanently delete ALL products, categories, and order history. Proceed?")) {
-        products = [];
-        queue = [];
-        history = [];
-        categories = ["All"];
-        orderCounter = 0;
-        pushData(); // Syncs empty state to Firebase
-        alert("System has been completely wiped.");
-        closeBackupModal();
-    }
-};
-
-// 2. Reset Orders Only (Clear History & Pending)
-window.resetOnlyOrders = () => {
-    if (confirm("Clear all pending and past orders? Your product list will remain safe.")) {
-        queue = [];
-        history = [];
-        orderCounter = 0;
-        pushData(); // Syncs cleared orders to Firebase
-        alert("Order history cleared.");
-        closeBackupModal();
-    }
-};
-
-// 3. Import CSV (Bulk Product Upload)
-window.importCSV = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const text = event.target.result;
-        const rows = text.split('\n');
-        
-        // Skip header if it exists
-        const startIdx = rows[0].toLowerCase().includes('name') ? 1 : 0;
-
-        for (let i = startIdx; i < rows.length; i++) {
-            const row = rows[i].trim();
-            if (!row) continue;
-
-            const cols = row.split(',');
-            if (cols.length >= 2) {
-                products.push({
-                    id: Date.now() + Math.random(),
-                    name: cols[0].trim(),
-                    price: parseFloat(cols[1]) || 0,
-                    img: cols[2] ? cols[2].trim() : "",
-                    cat: cols[3] ? cols[3].trim() : "",
-                    fav: false
-                });
-            }
-        }
-        pushData(); // Save imported products to Firebase
-        alert("Products imported successfully!");
-    };
-    reader.readAsText(file);
-    e.target.value = ''; // Clear input for next use
-};
+window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
+window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
+window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
+window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
+window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
+window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
+window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 
 initTapMS();
