@@ -276,7 +276,19 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); };
+window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); // Update the UI Button state
+    const btn = document.getElementById('summary-toggle-ui');
+    const dot = document.getElementById('toggle-dot');
+    
+    if (summaryEnabled) {
+        btn.querySelector('span').innerText = "Summary: ON";
+        btn.querySelector('span').classList.replace('text-slate-500', 'text-blue-600');
+        dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]";
+    } else {
+        btn.querySelector('span').innerText = "Summary: OFF";
+        btn.querySelector('span').classList.replace('text-blue-600', 'text-slate-500');
+        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
+    }};
 
 function openSummary(ord) { 
     document.getElementById('sum-id').innerText = `#${ord.orderNum}`; 
