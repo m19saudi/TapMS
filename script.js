@@ -1,4 +1,4 @@
-this is my js, fix it add the features without removing or changing anything,let YOUR_UID = "";
+let YOUR_UID = "";
 let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
