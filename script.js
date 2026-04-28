@@ -76,7 +76,7 @@ function render() {
             <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
                 ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
                 <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
-                    <img src="${p.img || ''}" class="product-image" onerror="this.src='https://placehold.co/400x400?text=No+Image'">
+                    <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 left-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
                 </div>
                 <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
@@ -102,7 +102,7 @@ function render() {
                         <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
-                        <img src="${p.img || ''}" class="w-full h-full object-cover" onerror="this.src='https://placehold.co/100x100?text=x'">
+                        <img src="${p.img || ''}" class="w-full h-full object-cover">
                         <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold" placeholder="URL">
                     </div>
                     <div class="flex-1 min-w-0">
@@ -139,13 +139,7 @@ function render() {
     lucide.createIcons();
 }
 
-// --- LOGIC FUNCTIONS ---
-window.updateTag = (list, idx, val) => {
-    if(list === 'queue') queue[idx].desc = val;
-    else history[idx].desc = val;
-    pushData();
-};
-
+// --- NEW ACTIONS ---
 window.importCSV = (e) => {
     const file = e.target.files[0];
     const reader = new FileReader();
@@ -196,7 +190,7 @@ function renderCart() {
     list.innerHTML = cart.map((item, idx) => `
         <div class="flex items-center justify-between border-b border-slate-50 py-3">
             <div class="flex items-center gap-3">
-                <img src="${item.img}" class="w-10 h-10 rounded-xl object-cover bg-slate-100" onerror="this.src='https://placehold.co/100x100?text=x'">
+                <img src="${item.img}" class="w-10 h-10 rounded-xl object-cover bg-slate-100">
                 <div><p class="font-bold text-sm truncate w-32 uppercase">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
             </div>
             <div class="flex items-center gap-3 bg-slate-50 p-1 rounded-xl">
@@ -219,23 +213,18 @@ window.checkoutToQueue = () => {
     cart = []; render(); pushData();
 };
 
+// RESTORED: Full render for Pending and History with original item displays
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
     if(pList) {
         pList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
-            <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100 mb-4">
+            <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100 mb-3">
                 <div class="bg-white px-3 py-2 rounded-xl flex items-center gap-2 mb-3">
                     <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
                     <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
                 <div class="flex flex-wrap gap-2 mb-4">
-                    ${ord.items.map(i => `
-                        <div class="group relative bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">
-                            ${i.name} x${i.qty}
-                            <div class="hidden group-hover:block absolute bottom-full left-0 mb-2 w-20 h-20 bg-white p-1 rounded-lg shadow-xl z-50">
-                                <img src="${i.img}" class="w-full h-full object-cover rounded-md" onerror="this.src='https://placehold.co/100x100?text=x'">
-                            </div>
-                        </div>`).join('')}
+                    ${ord.items.map(i => `<div class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}</div>`).join('')}
                 </div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
@@ -243,10 +232,11 @@ function renderPendingAndHistory() {
                 </div>
             </div>`).join('');
     }
+
     const hList = document.getElementById('history-list');
     if(hList) {
         hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
-            <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3">
+            <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3">
                 <div class="flex justify-between items-center mb-2">
                     <div class="flex items-center gap-3">
                         <span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span>
@@ -257,7 +247,7 @@ function renderPendingAndHistory() {
                         <button onclick="reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
                     </div>
                 </div>
-                <div class="text-[9px] text-slate-300 font-bold uppercase tracking-wider">
+                <div class="text-[9px] text-slate-400 font-medium italic">
                     ${h.items.map(i => `${i.name} x${i.qty}`).join(', ')}
                 </div>
             </div>`).join('');
@@ -267,6 +257,12 @@ function renderPendingAndHistory() {
     const tb = document.getElementById('cart-count-top');
     if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
+
+window.updateTag = (list, idx, val) => {
+    if(list === 'queue') queue[idx].desc = val;
+    else history[idx].desc = val;
+    pushData();
+};
 
 window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 window.importDatabase = (e) => {
@@ -297,7 +293,6 @@ window.showView = v => {
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
     document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
     document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
-    if(v === 'cashier') document.getElementById('btn-cashier').querySelector('span').innerText = "Cashier";
 };
 
 window.toggleManageSection = sec => {
