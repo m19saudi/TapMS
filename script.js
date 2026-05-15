@@ -36,6 +36,7 @@ function startSync() {
         
         if (!categories.includes("All")) categories.unshift("All");
         render();
+        updateSummaryUI();
     });
 }
 
@@ -318,20 +319,27 @@ window.toggleSummary = () => {
     pushData(); // Save the new state to Firebase immediately
 };
 
+window.toggleSummary = () => {
+    summaryEnabled = !summaryEnabled;
+    pushData(); // This triggers startSync automatically, which calls updateSummaryUI
+};
+
 function updateSummaryUI() {
     const btn = document.getElementById('summary-toggle-ui');
     const dot = document.getElementById('toggle-dot');
     if (!btn || !dot) return;
 
+    const span = btn.querySelector('span');
+
     if (summaryEnabled) {
-        btn.querySelector('span').innerText = "Summary: ON";
-        btn.querySelector('span').classList.remove('text-slate-500');
-        btn.querySelector('span').classList.add('text-blue-600');
+        span.innerText = "Summary: ON";
+        span.classList.remove('text-slate-500');
+        span.classList.add('text-blue-600');
         dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]";
     } else {
-        btn.querySelector('span').innerText = "Summary: OFF";
-        btn.querySelector('span').classList.remove('text-blue-600');
-        btn.querySelector('span').classList.add('text-slate-500');
+        span.innerText = "Summary: OFF";
+        span.classList.remove('text-blue-600');
+        span.classList.add('text-slate-500');
         dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
     }
 }
