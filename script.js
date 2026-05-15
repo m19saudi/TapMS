@@ -3,7 +3,7 @@ let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
-let mobileCols = 2;
+let gridCols = 4; // Default option for mobile
 
 async function initTapMS() {
     try {
@@ -15,7 +15,7 @@ async function initTapMS() {
         auth = firebase.auth();
         auth.onAuthStateChanged(user => {
             if (user && user.uid === YOUR_UID) {
-                document.getElementById('status-dot').className = "w-3 h-3 rounded-full bg-emerald-500";
+                document.getElementById('status-dot').className = "w-3 h-3 rounded-full dot-connected";
                 startSync();
             } else {
                 auth.signInWithEmailAndPassword("admin@gmail.com", "123456").catch(e => console.error(e));
@@ -43,20 +43,6 @@ function render() {
     const navb = document.getElementById('nav-badge');
     if(navb) navb.classList.toggle('hidden', queue.length === 0);
     
-    // RESTORED: Original Category Manager Rendering
-    const catList = document.getElementById('category-manager-list');
-    if(catList) {
-        catList.innerHTML = categories.filter(c => c !== "All").map((c, i) => `
-            <div class="flex items-center justify-between bg-slate-50 p-3 rounded-2xl">
-                <input type="text" value="${c}" onchange="editCatName(${i+1}, this.value)" class="bg-transparent font-bold text-xs outline-none">
-                <div class="flex items-center gap-2">
-                    <button onclick="moveCat(${i+1}, -1)" class="text-slate-400"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
-                    <button onclick="removeCat(${i+1})" class="text-red-400"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            </div>
-        `).join('');
-    }
-
     const catBar = document.getElementById('cat-bar');
     if(catBar) {
         catBar.innerHTML = categories.map(c => `
@@ -64,49 +50,58 @@ function render() {
         `).join('');
     }
 
-    // CASHIER VIEW: Hide خضار from All, Newest items at the end
+    // --- Cashier Filtering Logic ---
     const filtered = products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm);
-        const isKhadar = (p.cat === "خضار");
-        if (currentCat === "All") return matchesSearch && !isKhadar;
-        return matchesSearch && p.cat === currentCat;
+        const nameMatch = p.name.toLowerCase().includes(searchTerm);
+        const catMatch = (currentCat === "All" || (p.cat || "") === currentCat);
+        
+        // Requirement: "خضار" only visible if category filtered
+        if (currentCat === "All" && p.cat === "خضار") return false;
+        
+        return nameMatch && catMatch;
     });
+
+    // Requirement: Cashier Newest Last (Oldest ID first)
+    filtered.sort((a, b) => a.id - b.id);
 
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
+        // Apply Dynamic Grid Columns
+        cashierView.className = `px-6 grid grid-cols-${gridCols} gap-2`;
+        
         cashierView.innerHTML = filtered.map(p => {
-            const qty = (cart.filter(c => c.id === p.id).reduce((acc, cur) => acc + cur.qty, 0));
+            const qty = (cart.find(c => c.id === p.id) || {qty:0}).qty;
             return `
-            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
-                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
-                <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
-                    <img src="${p.img || ''}" class="product-image">
-                    <div class="absolute top-2 left-2 flex gap-1">
-                        <div class="bg-white/90 p-1 rounded-lg"><i data-lucide="check-square" class="w-3 h-3 text-blue-600"></i></div>
-                        ${p.fav ? '<div class="text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
-                    </div>
+            <div id="prod-${p.id}" class="bg-white p-2 rounded-3xl border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
+                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
+                <div class="aspect-square mb-1 overflow-hidden rounded-2xl bg-slate-50 relative pointer-events-none">
+                    <img src="${p.img || ''}" class="product-image w-full h-full object-cover">
+                    ${p.fav ? '<div class="absolute top-1 left-1 text-amber-500"><i data-lucide="star" class="w-2 h-2 fill-current"></i></div>' : ''}
                 </div>
-                <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
-                <p class="text-blue-600 font-black text-center text-[10px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
+                <h3 class="font-bold text-center text-[9px] truncate px-1">${p.name}</h3>
+                <p class="text-blue-600 font-black text-center text-[8px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
             </div>`;
         }).join('');
     }
 
-    // STOCK VIEW: Sorted by Recent Added (Reverse)
+    // --- Stock Filtering Logic ---
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
-        const stockItems = [...products].reverse();
-        inventoryList.innerHTML = stockItems.map((p) => {
-            const originalIdx = products.findIndex(orig => orig.id === p.id);
+        // Requirement: Stock Newest First (Newest ID first)
+        const stockDisplay = [...products].sort((a, b) => b.id - a.id);
+        
+        inventoryList.innerHTML = stockDisplay.map((p) => {
+            const originalIdx = products.findIndex(item => item.id === p.id);
             return `
             <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm">
                 <div class="flex items-center gap-4">
                     <div class="flex flex-col gap-1">
-                        <button onclick="moveItem(${originalIdx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
-                        <button onclick="moveItem(${originalIdx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${originalIdx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${originalIdx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
+                        <input type="text" value="${p.img || ''}" onchange="editItem(${p.id}, 'img', this.value)" class="absolute inset-0 opacity-0 focus:opacity-100 bg-white/95 text-[8px] text-center font-bold" placeholder="URL">
                     </div>
                     <div class="flex-1 min-w-0">
                         <input type="text" value="${p.name}" onchange="editItem(${p.id}, 'name', this.value)" class="w-full font-extrabold text-sm bg-transparent outline-none truncate block">
@@ -114,8 +109,14 @@ function render() {
                     </div>
                     <div class="flex items-center gap-2">
                         <button onclick="toggleFav(${p.id})" class="${p.fav ? 'text-amber-500' : 'text-slate-200'}"><i data-lucide="star" class="w-5 h-5 fill-current"></i></button>
-                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                        <button onclick="removeItem(${p.id})" class="text-red-100 hover:text-red-400 active:scale-95 transition-all">
+                            <i data-lucide="trash-2" class="w-5 h-5"></i>
+                        </button>
                     </div>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="editItem(${p.id}, 'cat', '')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${!p.cat ? 'bg-slate-900 text-white' : 'bg-slate-50 text-slate-400 border border-slate-100'}">None</button>
+                    ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
                 </div>
             </div>`;
         }).join('');
@@ -125,39 +126,20 @@ function render() {
     lucide.createIcons();
 }
 
-// LOGIC: Checkmark click -> Option for Remark -> Add to cart
+// Requirement: Changeable Grid Column Option
+window.toggleGrid = () => {
+    gridCols = gridCols === 4 ? 2 : 4;
+    render();
+};
+
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
     if(el) { el.classList.remove('tap-feedback'); void el.offsetWidth; el.classList.add('tap-feedback'); }
-    
     const p = products.find(x => x.id === id);
-    const wantsRemark = confirm(`Add ${p.name}? Click OK to add a remark/description.`);
-    
-    if (wantsRemark) {
-        const remark = prompt("Enter remark (e.g., No sauce, extra hot):", "");
-        if (remark !== null) {
-            const entryName = remark ? `${p.name} (${remark})` : p.name;
-            cart.push({...p, name: entryName, qty: 1, originalId: id});
-        }
-    } else {
-        const entry = cart.find(i => i.id === id && i.name === p.name);
-        if (entry) entry.qty++;
-        else cart.push({...p, qty: 1, originalId: id});
-    }
-    
+    const entry = cart.find(i => i.id === id);
+    if (entry) entry.qty++; else cart.push({...p, qty: 1});
     setTimeout(() => render(), 150); 
-};
-
-window.toggleGrid = () => {
-    mobileCols = mobileCols === 2 ? 4 : 2;
-    const view = document.getElementById('view-cashier');
-    view.className = `grid grid-cols-${mobileCols} sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4`;
-};
-
-window.addItem = () => { 
-    products.push({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); 
-    pushData(); 
 };
 
 window.openCart = () => { if(cart.length) { document.getElementById('cart-overlay').classList.add('active'); renderCart(); } };
@@ -169,7 +151,7 @@ function renderCart() {
         <div class="flex items-center justify-between border-b border-slate-50 py-3">
             <div class="flex items-center gap-3">
                 <img src="${item.img}" class="w-10 h-10 rounded-xl object-cover bg-slate-100">
-                <div><p class="font-bold text-[10px] truncate w-32 uppercase">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
+                <div><p class="font-bold text-sm truncate w-32 uppercase">${item.name}</p><p class="text-blue-600 font-black text-[10px]">$${(item.price * item.qty).toFixed(2)}</p></div>
             </div>
             <div class="flex items-center gap-3 bg-slate-50 p-1 rounded-xl">
                 <button onclick="updateCartQty(${idx}, -1)" class="w-7 h-7 flex items-center justify-center"><i data-lucide="minus" class="w-3 h-3"></i></button>
@@ -202,11 +184,16 @@ function renderPendingAndHistory() {
                     <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
                 <div class="flex flex-wrap gap-2 mb-4">
-                    ${ord.items.map(i => `<div class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}</div>`).join('')}
+                    ${ord.items.map(i => `
+                        <div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">
+                            ${i.name} x${i.qty}
+                            <div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div>
+                        </div>
+                    `).join('')}
                 </div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
-                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
             </div>`).join('');
     }
@@ -214,29 +201,49 @@ function renderPendingAndHistory() {
     const hList = document.getElementById('history-list');
     if(hList) {
         hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
-            <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 shadow-sm overflow-hidden" onclick="toggleOrderExpand(${idx})">
+            <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 cursor-pointer shadow-sm overflow-hidden" onclick="toggleOrderExpand(${idx})">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
                         <span class="text-slate-400 font-black text-[10px]">#${h.orderNum}</span>
-                        <span class="font-bold text-slate-700 text-sm">${h.desc || 'No Tag'}</span>
+                        <input type="text" value="${h.desc || ''}" onclick="event.stopPropagation();" onchange="updateTag('history', ${idx}, this.value)" class="font-bold text-slate-700 text-sm bg-transparent outline-none">
                     </div>
                     <div class="flex items-center gap-3">
                         <p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p>
+                        <button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-blue-600 transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
                         <i data-lucide="chevron-down" class="w-4 h-4 text-slate-300 rotate-icon"></i>
                     </div>
                 </div>
+                
                 <div class="manager-content">
                     <p class="text-[10px] text-slate-400 font-bold mb-3 mt-2">${h.date || ''}</p>
                     <div class="flex flex-wrap gap-2 mb-4">
-                        ${h.items.map(i => `<div class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">${i.name} x${i.qty}</div>`).join('')}
+                        ${h.items.map(i => `
+                            <div class="item-tag-hover bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">
+                                ${i.name} x${i.qty}
+                                <div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div>
+                            </div>
+                        `).join('')}
                     </div>
-                    <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="w-full py-3 bg-red-50 text-red-400 rounded-xl font-black uppercase text-[10px]">Delete Order</button>
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px] active:scale-95 transition-all">Edit Order</button>
+                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                 </div>
             </div>`).join('');
     }
+    
+    const tq = cart.reduce((s, i) => s + i.qty, 0);
+    const tb = document.getElementById('cart-count-top');
+    if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
 
-window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('manager-expanded');
+window.toggleOrderExpand = idx => {
+    const card = document.getElementById(`hist-card-${idx}`);
+    card.classList.toggle('manager-expanded');
+};
+
 window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 window.importDatabase = (e) => {
     const r = new FileReader();
@@ -246,13 +253,17 @@ window.importDatabase = (e) => {
             products = data.products || [];
             categories = data.categories || ["All"];
             pushData();
+            alert("Restored!");
             closeBackupModal();
         } catch { alert("Invalid File!"); }
     };
     r.readAsText(e.target.files[0]);
+    e.target.value = '';
 };
 
+window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
+window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
 window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
 window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
 
@@ -271,30 +282,18 @@ window.toggleManageSection = sec => {
     document.getElementById('sub-btn-stock').className = (sec === 'stock') ? "px-6 py-2 rounded-xl text-xs font-black uppercase bg-white shadow-sm text-blue-600" : "px-6 py-2 rounded-xl text-xs font-black uppercase text-slate-400";
 };
 
+window.toggleCategoryManager = () => document.getElementById('category-manager-card').classList.toggle('manager-expanded');
 window.addCat = () => { const n = prompt("New category:"); if(n) { categories.push(n); pushData(); } };
 window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
 window.removeCat = i => { if(confirm("Delete?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
 window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
-
+window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
 window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-
-window.toggleSummary = () => {
-    summaryEnabled = !summaryEnabled;
-    const btn = document.getElementById('summary-toggle-ui');
-    const dot = document.getElementById('toggle-dot');
-    if (summaryEnabled) {
-        btn.querySelector('span').innerText = "Summary: ON";
-        dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-md";
-    } else {
-        btn.querySelector('span').innerText = "Summary: OFF";
-        dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
-    }
-};
 
 function openSummary(ord) { 
     document.getElementById('sum-id').innerText = `#${ord.orderNum}`; 
@@ -307,20 +306,5 @@ window.closeSummary = () => document.getElementById('summary-overlay').classList
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
-
-window.confirmWipe = () => { if (confirm("Wipe ALL data?")) { products = []; queue = []; history = []; categories = ["All"]; orderCounter = 0; pushData(); closeBackupModal(); } };
-window.resetOnlyOrders = () => { if (confirm("Clear history?")) { queue = []; history = []; orderCounter = 0; pushData(); closeBackupModal(); } };
-window.importCSV = (e) => {
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        const rows = event.target.result.split('\n');
-        for (let i = 1; i < rows.length; i++) {
-            const cols = rows[i].split(',');
-            if (cols.length >= 2) products.push({ id: Date.now() + Math.random(), name: cols[0].trim(), price: parseFloat(cols[1]) || 0, img: cols[2]?.trim() || "", cat: cols[3]?.trim() || "", fav: false });
-        }
-        pushData();
-    };
-    reader.readAsText(e.target.files[0]);
-};
 
 initTapMS();
