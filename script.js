@@ -2,7 +2,7 @@ let YOUR_UID = "";
 let db, auth;
 let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
-let searchTerm = "", currentCat = "All", summaryEnabled = false;
+let searchTerm = "", currentCat = "All", summaryEnabled = false, mobileCols = 2;
 
 async function initTapMS() {
     try {
@@ -49,7 +49,22 @@ function render() {
         `).join('');
     }
 
-    const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
+    // UPDATED FILTER LOGIC:
+    // 1. Newest items are at the end of the array, so we don't need special sorting here to keep them at the end.
+    // 2. Hide "خضار" products when "All" is selected.
+    const filtered = products.filter(p => {
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm);
+        const isKhadar = (p.cat === "خضار");
+        
+        if (currentCat === "All") {
+            // Show only if NOT "خضار"
+            return matchesSearch && !isKhadar;
+        } else {
+            // Normal category filtering
+            return matchesSearch && (p.cat || "") === currentCat;
+        }
+    });
+
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
         cashierView.innerHTML = filtered.map(p => {
@@ -69,7 +84,8 @@ function render() {
 
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
-        inventoryList.innerHTML = products.map((p, idx) => `
+        // Reverse here for Stock view so you see newest first while editing, but keep pushing to end for database logic
+        inventoryList.innerHTML = [...products].map((p, idx) => `
             <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm">
                 <div class="flex items-center gap-4">
                     <div class="flex flex-col gap-1">
@@ -113,6 +129,21 @@ function render() {
     renderPendingAndHistory();
     lucide.createIcons();
 }
+
+// TOGGLE MOBILE GRID FUNCTION
+window.toggleMobileGrid = () => {
+    const view = document.getElementById('view-cashier');
+    const label = document.getElementById('grid-label');
+    if (mobileCols === 2) {
+        mobileCols = 4;
+        view.classList.replace('grid-cols-mobile-2', 'grid-cols-mobile-4');
+        label.innerText = "4";
+    } else {
+        mobileCols = 2;
+        view.classList.replace('grid-cols-mobile-4', 'grid-cols-mobile-2');
+        label.innerText = "2";
+    }
+};
 
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
@@ -269,7 +300,10 @@ window.addCat = () => { const n = prompt("New category:"); if(n) { categories.pu
 window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
 window.removeCat = i => { if(confirm("Delete?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
 window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
-window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
+
+// UPDATED: Push to last item in main menu
+window.addItem = () => { products.push({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
+
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
 window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.fav = !p.fav; pushData(); } };
