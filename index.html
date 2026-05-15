@@ -12,89 +12,51 @@
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f8fafc; }
-        .active-tab { background: #2563eb; color: white; box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.2); }
-        .dot-connected { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .active-tab { background: #2563eb; color: white; }
+        .dot-connected { background: #10b981; }
         .tap-feedback { transform: scale(0.95); transition: transform 0.1s; }
-        .manager-content { max-height: 0; opacity: 0; transition: all 0.3s ease; pointer-events: none; }
-        .manager-expanded .manager-content { max-height: 500px; opacity: 1; pointer-events: auto; padding-top: 1rem; }
-        .rotate-icon { transition: transform 0.3s; }
-        .manager-expanded .rotate-icon { transform: rotate(180deg); }
-        .overlay { opacity: 0; visibility: hidden; transition: all 0.3s; z-index: 50; }
-        .overlay.active { opacity: 1; visibility: visible; }
-        .overlay-content { transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-        .overlay.active .overlay-content { transform: translateY(0); }
     </style>
 </head>
 <body class="overflow-x-hidden pb-24">
 
     <header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-6 py-4 flex justify-between items-center">
         <div class="flex items-center gap-3">
-            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200 transition-all"></div>
+            <div id="status-dot" class="w-3 h-3 rounded-full bg-slate-200"></div>
             <h1 class="font-black text-xl tracking-tighter">Tap<span class="text-blue-600">MS</span></h1>
         </div>
         <div class="flex items-center gap-2">
-            <button onclick="toggleGrid()" class="p-2 bg-slate-50 rounded-xl text-slate-500"><i data-lucide="layout-grid" class="w-5 h-5"></i></button>
-            <button onclick="toggleSearch()" class="p-2 bg-slate-50 rounded-xl text-slate-500"><i data-lucide="search" class="w-5 h-5"></i></button>
-            <button onclick="openBackupModal()" class="p-2 bg-slate-50 rounded-xl text-slate-500"><i data-lucide="database" class="w-5 h-5"></i></button>
+            <button onclick="toggleSearch()" class="p-2 bg-slate-50 rounded-xl"><i data-lucide="search" class="w-5 h-5"></i></button>
+            <button onclick="openBackupModal()" class="p-2 bg-slate-50 rounded-xl"><i data-lucide="database" class="w-5 h-5"></i></button>
         </div>
     </header>
 
     <div id="search-container" class="hidden px-6 py-3 bg-white border-b border-slate-100">
-        <input type="text" id="cashier-search" oninput="filterProducts(this.value)" placeholder="Search products..." class="w-full bg-slate-50 border-none rounded-2xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 ring-blue-100">
+        <input type="text" id="cashier-search" oninput="filterProducts(this.value)" placeholder="Search..." class="w-full bg-slate-50 rounded-2xl px-5 py-3 text-sm font-bold outline-none">
     </div>
 
-    <div id="cat-bar" class="flex gap-2 overflow-x-auto px-6 py-4 no-scrollbar scroll-smooth">
-        </div>
+    <div id="cat-bar" class="flex gap-2 overflow-x-auto px-6 py-4 no-scrollbar"></div>
 
-    <main id="view-cashier" class="px-6 grid grid-cols-4 gap-3">
-        </main>
+    <main id="view-cashier" class="px-6 grid grid-cols-4 gap-2"></main>
 
     <main id="view-manage" class="hidden px-6 space-y-6">
         <div class="flex gap-2 bg-slate-100 p-1.5 rounded-[2rem]">
-            <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="flex-1 py-3 rounded-[1.5rem] text-xs font-black uppercase transition-all">Orders</button>
-            <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="flex-1 py-3 rounded-[1.5rem] text-xs font-black uppercase transition-all">Stock</button>
+            <button id="sub-btn-orders" onclick="toggleManageSection('orders')" class="flex-1 py-3 rounded-[1.5rem] text-xs font-black uppercase">Orders</button>
+            <button id="sub-btn-stock" onclick="toggleManageSection('stock')" class="flex-1 py-3 rounded-[1.5rem] text-xs font-black uppercase">Stock</button>
         </div>
-
         <section id="sec-orders" class="space-y-4">
             <div id="pending-list"></div>
             <div id="history-list"></div>
         </section>
-
-        <section id="sec-stock" class="hidden space-y-4 pb-10">
-            <div class="flex justify-between items-center px-2">
-                <button onclick="addItem()" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase shadow-lg shadow-blue-200">+ Add Product</button>
-                <button onclick="toggleCategoryManager()" class="bg-slate-900 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">Categories</button>
-            </div>
-
-            <div id="category-manager-card" class="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-sm transition-all">
-                <div class="p-5 flex justify-between items-center cursor-pointer" onclick="toggleCategoryManager()">
-                    <h3 class="font-black text-sm uppercase">Manage Categories</h3>
-                    <i data-lucide="chevron-down" class="w-5 h-5 text-slate-300 rotate-icon"></i>
-                </div>
-                <div class="manager-content px-5 pb-5 space-y-3">
-                    <div id="category-manager-list" class="space-y-2"></div>
-                    <button onclick="addCat()" class="w-full py-3 border-2 border-dashed border-slate-200 rounded-2xl text-slate-400 font-bold text-xs uppercase">+ New Category</button>
-                </div>
-            </div>
-
+        <section id="sec-stock" class="hidden space-y-4">
+            <button onclick="addItem()" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] uppercase">+ Add Product</button>
             <div id="inventory-list" class="space-y-3"></div>
         </section>
     </main>
 
     <nav class="fixed bottom-6 left-6 right-6 bg-white/90 backdrop-blur-xl border border-slate-100 rounded-[2.5rem] shadow-2xl z-40 flex justify-around items-center p-2">
-        <button id="btn-cashier" onclick="showView('cashier')" class="active-tab flex flex-col items-center gap-2 p-3 rounded-3xl transition-all">
-            <i data-lucide="layout-grid" class="w-6 h-6"></i>
-        </button>
-        <div class="relative">
-            <button onclick="openCart()" class="bg-slate-900 text-white p-5 rounded-[2rem] shadow-xl active:scale-90 transition-all -mt-8">
-                <i data-lucide="shopping-bag" class="w-6 h-6"></i>
-            </button>
-            <div id="cart-count-top" class="hidden absolute -top-10 -right-2 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-4 border-white">0</div>
-        </div>
-        <button id="btn-manage" onclick="showView('manage')" class="text-slate-400 flex flex-col items-center gap-2 p-3 rounded-3xl transition-all">
-            <i data-lucide="settings-2" class="w-6 h-6"></i>
-            <div id="nav-badge" class="hidden absolute top-3 right-3 w-2 h-2 bg-blue-600 rounded-full"></div>
-        </button>
+        <button id="btn-cashier" onclick="showView('cashier')" class="active-tab flex flex-col items-center p-3 rounded-3xl"><i data-lucide="layout-grid" class="w-6 h-6"></i></button>
+        <button onclick="openCart()" class="bg-slate-900 text-white p-5 rounded-[2rem] -mt-8"><i data-lucide="shopping-bag" class="w-6 h-6"></i></button>
+        <button id="btn-manage" onclick="showView('manage')" class="text-slate-400 flex flex-col items-center p-3 rounded-3xl"><i data-lucide="settings-2" class="w-6 h-6"></i></button>
     </nav>
 
     <script src="script.js"></script>
