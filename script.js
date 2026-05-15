@@ -4,9 +4,6 @@ let products = [], cart = [], queue = [], history = [], orderCounter = 0;
 let categories = ["All"];
 let searchTerm = "", currentCat = "All", summaryEnabled = false;
 
-// Default Mobile Columns
-let mobileGridCols = 4; 
-
 async function initTapMS() {
     try {
         const response = await fetch('/api/config');
@@ -52,53 +49,32 @@ function render() {
         `).join('');
     }
 
-    // --- CASHIER LOGIC ---
-    // 1. "خضار" Filter: Hide if in "All" view
-    // 2. Sorting: Cashier (Newest Last / Oldest ID first)
-    const filtered = products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm);
-        const matchesCat = (currentCat === "All" || (p.cat || "") === currentCat);
-        if (currentCat === "All" && p.cat === "خضار") return false;
-        return matchesSearch && matchesCat;
-    }).sort((a, b) => {
-        if (b.fav !== a.fav) return b.fav - a.fav; 
-        return a.id - b.id; 
-    });
-
+    const filtered = products.filter(p => p.name.toLowerCase().includes(searchTerm) && (currentCat === "All" || (p.cat || "") === currentCat)).sort((a,b) => b.fav - a.fav);
     const cashierView = document.getElementById('view-cashier');
     if(cashierView) {
-        // Variable Grid Columns
-        cashierView.className = `grid grid-cols-${mobileGridCols} sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2 md:gap-4`;
-        
         cashierView.innerHTML = filtered.map(p => {
             const qty = (cart.find(c => c.id === p.id) || {qty:0}).qty;
             return `
-            <div id="prod-${p.id}" class="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
-                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[8px] font-black w-5 h-5 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
-                <div class="aspect-square mb-1 overflow-hidden rounded-xl bg-slate-50 relative pointer-events-none">
+            <div id="prod-${p.id}" class="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative select-none cursor-pointer" onclick="handleProductTap(event, ${p.id})">
+                ${qty > 0 ? `<div class="absolute -top-1 -right-1 bg-blue-600 text-white text-[10px] font-black w-6 h-6 rounded-full flex items-center justify-center border-2 border-white z-10">${qty}</div>` : ''}
+                <div class="aspect-square mb-2 overflow-hidden rounded-[1.5rem] bg-slate-50 relative pointer-events-none">
                     <img src="${p.img || ''}" class="product-image">
                     ${p.fav ? '<div class="absolute top-2 left-2 text-amber-500"><i data-lucide="star" class="w-3 h-3 fill-current"></i></div>' : ''}
                 </div>
-                <h3 class="font-bold text-center text-[9px] truncate px-1 uppercase">${p.name}</h3>
-                <p class="text-blue-600 font-black text-center text-[8px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
+                <h3 class="font-bold text-center text-[11px] truncate px-1">${p.name}</h3>
+                <p class="text-blue-600 font-black text-center text-[10px] mt-0.5">$${parseFloat(p.price || 0).toFixed(2)}</p>
             </div>`;
         }).join('');
     }
 
-    // --- STOCK LOGIC ---
-    // 1. Sorting: Stock (Newest First / Newest ID first)
     const inventoryList = document.getElementById('inventory-list');
     if(inventoryList) {
-        const stockItems = [...products].sort((a, b) => b.id - a.id);
-        
-        inventoryList.innerHTML = stockItems.map((p) => {
-            const origIdx = products.findIndex(x => x.id === p.id);
-            return `
+        inventoryList.innerHTML = products.map((p, idx) => `
             <div class="bg-white p-5 rounded-[2.5rem] border border-slate-100 space-y-4 shadow-sm">
                 <div class="flex items-center gap-4">
                     <div class="flex flex-col gap-1">
-                        <button onclick="moveItem(${origIdx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
-                        <button onclick="moveItem(${origIdx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, -1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-up" class="w-4 h-4"></i></button>
+                        <button onclick="moveItem(${idx}, 1)" class="p-1.5 bg-slate-50 rounded-lg text-slate-400 hover:text-blue-600"><i data-lucide="chevron-down" class="w-4 h-4"></i></button>
                     </div>
                     <div class="relative w-14 h-14 shrink-0 overflow-hidden rounded-2xl bg-slate-50">
                         <img src="${p.img || ''}" class="w-full h-full object-cover">
@@ -121,26 +97,23 @@ function render() {
                         ${categories.filter(c => c !== "All").map(c => `<button onclick="editItem(${p.id}, 'cat', '${c}')" class="px-3 py-1.5 rounded-xl text-[9px] font-black uppercase ${p.cat === c ? 'bg-blue-600 text-white' : 'bg-slate-50 text-slate-400'}">${c}</button>`).join('')}
                     </div>
                 </div>
-            </div>`;
-        }).join('');
+            </div>`).join('');
+    }
+
+    const catManager = document.getElementById('category-manager-list');
+    if(catManager) {
+        catManager.innerHTML = categories.filter(c => c !== "All").map((c, idx) => `
+            <div class="flex items-center gap-2 bg-slate-50 p-2 rounded-2xl border border-slate-100">
+                <div class="flex flex-col"><button onclick="moveCat(${idx+1}, -1)" class="p-1 text-slate-400"><i data-lucide="chevron-up" class="w-3 h-3"></i></button><button onclick="moveCat(${idx+1}, 1)" class="p-1 text-slate-400"><i data-lucide="chevron-down" class="w-3 h-3"></i></button></div>
+                <input type="text" value="${c}" onchange="editCatName(${idx+1}, this.value)" class="flex-1 bg-transparent font-bold text-xs outline-none px-2">
+                <button onclick="removeCat(${idx+1})" class="p-2 text-red-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`).join('');
     }
 
     renderPendingAndHistory();
     lucide.createIcons();
-    updateGridUI();
 }
 
-window.setGrid = (n) => { mobileGridCols = n; render(); };
-function updateGridUI() {
-    const b2 = document.getElementById('grid-2-btn');
-    const b4 = document.getElementById('grid-4-btn');
-    if(b2 && b4) {
-        b2.className = mobileGridCols === 2 ? "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white" : "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400";
-        b4.className = mobileGridCols === 4 ? "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase bg-blue-600 text-white" : "px-4 py-1.5 rounded-lg text-[10px] font-black uppercase text-slate-400";
-    }
-}
-
-// Rest of original logic...
 window.handleProductTap = (e, id) => {
     if (e) e.preventDefault(); 
     const el = document.getElementById(`prod-${id}`);
@@ -172,6 +145,7 @@ function renderCart() {
 }
 
 window.updateCartQty = (idx, d) => { cart[idx].qty += d; if(cart[idx].qty <= 0) cart.splice(idx, 1); if(!cart.length) closeCart(); render(); renderCart(); };
+
 window.checkoutToQueue = () => {
     if(!cart.length) return;
     orderCounter++;
@@ -185,23 +159,30 @@ window.checkoutToQueue = () => {
 function renderPendingAndHistory() {
     const pList = document.getElementById('pending-list');
     if(pList) {
-        pList.innerHTML = queue.length ? `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
+        pList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4">Pending</h2>` + queue.map((ord, idx) => `
             <div class="bg-blue-50/50 p-5 rounded-[2.5rem] border-2 border-blue-100 mb-3">
                 <div class="bg-white px-3 py-2 rounded-xl flex items-center gap-2 mb-3">
                     <span class="text-blue-600 font-black text-[10px]">#${ord.orderNum}</span>
                     <input type="text" value="${ord.desc || ''}" onchange="updateTag('queue', ${idx}, this.value)" placeholder="Tag..." class="bg-transparent font-bold text-blue-600 text-sm outline-none w-full">
                 </div>
-                <div class="flex flex-wrap gap-2 mb-4">${ord.items.map(i => `<div class="bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">${i.name} x${i.qty}</div>`).join('')}</div>
+                <div class="flex flex-wrap gap-2 mb-4">
+                    ${ord.items.map(i => `
+                        <div class="item-tag-hover bg-blue-100 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg border border-blue-200">
+                            ${i.name} x${i.qty}
+                            <div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div>
+                        </div>
+                    `).join('')}
+                </div>
                 <div class="flex gap-2">
                     <button onclick="approveOrder(${idx})" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-black uppercase text-[10px]">Approve $${ord.total.toFixed(2)}</button>
-                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
+                    <button onclick="removeItemFromList('queue', ${idx})" class="px-5 bg-white border border-red-100 text-red-400 rounded-2xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-5 h-5"></i></button>
                 </div>
-            </div>`).join('') : '';
+            </div>`).join('');
     }
 
     const hList = document.getElementById('history-list');
     if(hList) {
-        hList.innerHTML = history.length ? `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
+        hList.innerHTML = `<h2 class="font-black text-lg px-2 mb-4 text-slate-400">History</h2>` + history.map((h, idx) => `
             <div id="hist-card-${idx}" class="bg-white p-5 rounded-[2.5rem] border border-slate-100 mb-3 cursor-pointer shadow-sm overflow-hidden" onclick="toggleOrderExpand(${idx})">
                 <div class="flex justify-between items-center">
                     <div class="flex items-center gap-3">
@@ -210,42 +191,70 @@ function renderPendingAndHistory() {
                     </div>
                     <div class="flex items-center gap-3">
                         <p class="font-black text-blue-600 text-sm">$${h.total.toFixed(2)}</p>
+                        <button onclick="event.stopPropagation(); reorder(${idx})" class="p-2 bg-slate-50 rounded-xl text-slate-400 hover:text-blue-600 transition-colors">
+                            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                        </button>
                         <i data-lucide="chevron-down" class="w-4 h-4 text-slate-300 rotate-icon"></i>
                     </div>
                 </div>
+                
                 <div class="manager-content">
-                    <div class="flex flex-wrap gap-2 mb-4">${h.items.map(i => `<div class="bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">${i.name} x${i.qty}</div>`).join('')}</div>
-                    <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="w-full py-3 bg-red-50 text-red-400 rounded-xl font-black uppercase text-[10px]">Delete Order</button>
+                    <p class="text-[10px] text-slate-400 font-bold mb-3 mt-2">${h.date || ''}</p>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        ${h.items.map(i => `
+                            <div class="item-tag-hover bg-slate-50 text-slate-500 text-[10px] font-bold px-2 py-1 rounded-lg border border-slate-100">
+                                ${i.name} x${i.qty}
+                                <div class="item-preview-popup"><img src="${i.img}" class="w-full h-full object-cover rounded-lg"></div>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="event.stopPropagation(); editOrderDetails(${idx})" class="flex-1 bg-slate-900 text-white py-3 rounded-xl font-black uppercase text-[10px] active:scale-95 transition-all">Edit Order</button>
+                        <button onclick="event.stopPropagation(); removeItemFromList('history', ${idx})" class="px-4 py-3 bg-red-50 text-red-400 rounded-xl active:scale-95 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
                 </div>
-            </div>`).join('') : '';
+            </div>`).join('');
     }
+    
     const tq = cart.reduce((s, i) => s + i.qty, 0);
     const tb = document.getElementById('cart-count-top');
     if(tb) { tb.innerText = tq; tb.classList.toggle('hidden', tq === 0); }
 }
 
-window.toggleOrderExpand = idx => document.getElementById(`hist-card-${idx}`).classList.toggle('manager-expanded');
-window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); };
+window.toggleOrderExpand = idx => {
+    const card = document.getElementById(`hist-card-${idx}`);
+    card.classList.toggle('manager-expanded');
+};
+
+window.executeExport = () => { const b = new Blob([JSON.stringify({products, categories}, null, 2)], { type: "application/json" }); const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `Backup.json`; a.click(); closeBackupModal(); };
 window.importDatabase = (e) => {
     const r = new FileReader();
     r.onload = (ev) => {
         try {
             const data = JSON.parse(ev.target.result);
-            products = data.products || []; categories = data.categories || ["All"];
-            pushData(); alert("Restored!");
+            products = data.products || [];
+            categories = data.categories || ["All"];
+            pushData();
+            alert("Restored!");
+            closeBackupModal();
         } catch { alert("Invalid File!"); }
     };
     r.readAsText(e.target.files[0]);
+    e.target.value = '';
 };
 
+window.editOrderDetails = idx => { cart = JSON.parse(JSON.stringify(history[idx].items)); history.splice(idx, 1); window.showView('cashier'); render(); };
 window.approveOrder = idx => { history.unshift({ ...queue[idx], date: new Date().toLocaleString() }); queue.splice(idx, 1); pushData(); };
+window.reorder = idx => { orderCounter++; queue.unshift({ ...history[idx], orderNum: orderCounter, date: new Date().toLocaleTimeString() }); pushData(); };
+window.updateTag = (l, i, v) => { if(l === 'queue') queue[i].desc = v; else history[i].desc = v; pushData(); };
 window.removeItemFromList = (l, i) => { if(l === 'queue') queue.splice(i, 1); else history.splice(i, 1); pushData(); };
+
 window.showView = v => {
     document.getElementById('view-cashier').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('cat-bar').classList.toggle('hidden', v !== 'cashier');
     document.getElementById('view-manage').classList.toggle('hidden', v !== 'manage');
-    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab rounded-[2rem] transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 rounded-[2rem] transition-all';
-    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab rounded-[2rem] transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 rounded-[2rem] transition-all';
+    document.getElementById('btn-cashier').className = (v==='cashier')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
+    document.getElementById('btn-manage').className = (v==='manage')?'flex flex-col items-center gap-2 p-3 active-tab transition-all':'flex flex-col items-center gap-2 p-3 text-slate-400 transition-all';
 };
 
 window.toggleManageSection = sec => {
@@ -259,6 +268,7 @@ window.toggleCategoryManager = () => document.getElementById('category-manager-c
 window.addCat = () => { const n = prompt("New category:"); if(n) { categories.push(n); pushData(); } };
 window.editCatName = (i, n) => { const old = categories[i]; categories[i] = n; products.forEach(p => { if(p.cat === old) p.cat = n; }); pushData(); };
 window.removeCat = i => { if(confirm("Delete?")) { const old = categories[i]; categories.splice(i, 1); products.forEach(p => { if(p.cat === old) p.cat = ""; }); pushData(); } };
+window.moveCat = (i, s) => { const n = i + s; if(n < 1 || n >= categories.length) return; [categories[i], categories[n]] = [categories[n], categories[i]]; pushData(); };
 window.addItem = () => { products.unshift({ id: Date.now(), name: 'New Product', price: 0, img: '', fav: false, cat: '' }); pushData(); };
 window.editItem = (id, f, v) => { const p = products.find(x => x.id === id); if(p) { p[f] = (f==='price'?parseFloat(v):v); pushData(); } };
 window.removeItem = id => { products = products.filter(x => x.id !== id); pushData(); };
@@ -266,17 +276,19 @@ window.toggleFav = id => { const p = products.find(x => x.id === id); if(p) { p.
 window.setCategory = (cat) => { currentCat = cat; render(); };
 window.filterProducts = val => { searchTerm = val.toLowerCase(); render(); };
 window.moveItem = (index, step) => { const newIndex = index + step; if (newIndex < 0 || newIndex >= products.length) return; [products[index], products[newIndex]] = [products[newIndex], products[index]]; pushData(); };
-window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); 
+window.toggleSummary = () => { summaryEnabled = !summaryEnabled; render(); // Update the UI Button state
     const btn = document.getElementById('summary-toggle-ui');
     const dot = document.getElementById('toggle-dot');
+    
     if (summaryEnabled) {
-        btn.querySelector('span').innerText = "Summary: ON"; btn.querySelector('span').classList.replace('text-slate-500', 'text-blue-600');
+        btn.querySelector('span').innerText = "Summary: ON";
+        btn.querySelector('span').classList.replace('text-slate-500', 'text-blue-600');
         dot.className = "w-2.5 h-2.5 rounded-full bg-blue-600 shadow-[0_0_8px_rgba(37,99,235,0.5)]";
     } else {
-        btn.querySelector('span').innerText = "Summary: OFF"; btn.querySelector('span').classList.replace('text-blue-600', 'text-slate-500');
+        btn.querySelector('span').innerText = "Summary: OFF";
+        btn.querySelector('span').classList.replace('text-blue-600', 'text-slate-500');
         dot.className = "w-2.5 h-2.5 rounded-full bg-slate-300";
-    }
-};
+    }};
 
 function openSummary(ord) { 
     document.getElementById('sum-id').innerText = `#${ord.orderNum}`; 
@@ -289,5 +301,69 @@ window.closeSummary = () => document.getElementById('summary-overlay').classList
 window.toggleSearch = () => { const s = document.getElementById('search-container'); s.classList.toggle('hidden'); if(!s.classList.contains('hidden')) document.getElementById('cashier-search').focus(); };
 window.openBackupModal = () => document.getElementById('backup-overlay').classList.add('active');
 window.closeBackupModal = () => document.getElementById('backup-overlay').classList.remove('active');
+
+// --- SYSTEM ADMIN FUNCTIONS ---
+
+// 1. Wipe All Data (Atomic Reset)
+window.confirmWipe = () => {
+    if (confirm("🚨 CRITICAL: This will permanently delete ALL products, categories, and order history. Proceed?")) {
+        products = [];
+        queue = [];
+        history = [];
+        categories = ["All"];
+        orderCounter = 0;
+        pushData(); // Syncs empty state to Firebase
+        alert("System has been completely wiped.");
+        closeBackupModal();
+    }
+};
+
+// 2. Reset Orders Only (Clear History & Pending)
+window.resetOnlyOrders = () => {
+    if (confirm("Clear all pending and past orders? Your product list will remain safe.")) {
+        queue = [];
+        history = [];
+        orderCounter = 0;
+        pushData(); // Syncs cleared orders to Firebase
+        alert("Order history cleared.");
+        closeBackupModal();
+    }
+};
+
+// 3. Import CSV (Bulk Product Upload)
+window.importCSV = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        const text = event.target.result;
+        const rows = text.split('\n');
+        
+        // Skip header if it exists
+        const startIdx = rows[0].toLowerCase().includes('name') ? 1 : 0;
+
+        for (let i = startIdx; i < rows.length; i++) {
+            const row = rows[i].trim();
+            if (!row) continue;
+
+            const cols = row.split(',');
+            if (cols.length >= 2) {
+                products.push({
+                    id: Date.now() + Math.random(),
+                    name: cols[0].trim(),
+                    price: parseFloat(cols[1]) || 0,
+                    img: cols[2] ? cols[2].trim() : "",
+                    cat: cols[3] ? cols[3].trim() : "",
+                    fav: false
+                });
+            }
+        }
+        pushData(); // Save imported products to Firebase
+        alert("Products imported successfully!");
+    };
+    reader.readAsText(file);
+    e.target.value = ''; // Clear input for next use
+};
 
 initTapMS();
